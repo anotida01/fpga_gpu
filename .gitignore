@@ -13,10 +13,18 @@
 *.dae
 *.c4d
 
+# Quartus & Qsys
 *.qsys
+*.qsys_edit*
 *.sopcinfo
 *.bak
+*greybox_tmp*
+
+# Cadence
+*cds_libs*
 
 *.xml
 *.html
 *.setup
+
+.vscode/*
