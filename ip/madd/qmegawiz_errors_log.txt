@@ -1,0 +1,16 @@
+
+
+/home/ano/proj/fpga_graphics/vertex_processor/ip/madd/madd.v
+
+Aug 17 06PM:37:30>: Megafunction Multiply Adder Intel FPGA IP v20.1 is not listed in any 
+wizard.lst file in the specified library path(s).Wizard launch aborted
+
+/home/ano/proj/fpga_graphics/vertex_processor/ip/madd/madd.v
+
+Aug 17 06PM:37:45>: Megafunction Multiply Adder Intel FPGA IP v20.1 is not listed in any 
+wizard.lst file in the specified library path(s).Wizard launch aborted
+
+/home/ano/proj/fpga_graphics/vertex_processor/ip/madd/madd.v
+
+Aug 17 07PM:05:38>: Megafunction Multiply Adder Intel FPGA IP v20.1 is not listed in any 
+wizard.lst file in the specified library path(s).Wizard launch aborted

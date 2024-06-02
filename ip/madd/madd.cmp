@@ -1,0 +1,11 @@
+	component madd is
+		port (
+			result  : out std_logic_vector(53 downto 0);                    -- result
+			dataa_0 : in  std_logic_vector(26 downto 0) := (others => 'X'); -- dataa_0
+			datab_0 : in  std_logic_vector(26 downto 0) := (others => 'X'); -- datab_0
+			clock0  : in  std_logic                     := 'X';             -- clock0
+			ena0    : in  std_logic                     := 'X';             -- ena0
+			sclr0   : in  std_logic                     := 'X'              -- sclr0
+		);
+	end component madd;
+
