@@ -1,3 +1,5 @@
+`timescale 1ps/1ps
+
 
 module timer_clk #(
   parameter WIDTH=8

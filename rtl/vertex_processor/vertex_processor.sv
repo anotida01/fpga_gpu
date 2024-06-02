@@ -1,4 +1,4 @@
-
+`timescale 1ps/1ps
 
 module vertex_processor (
   input  logic [ 0:0] clk, reset, start_i,
