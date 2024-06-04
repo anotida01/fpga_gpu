@@ -28,3 +28,7 @@
 *.setup
 
 .vscode/*
+
+# Xcelium
+sim/xcelium/libraries/*
+sim/xcelium/.simvision/*
