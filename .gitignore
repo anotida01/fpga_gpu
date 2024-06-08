@@ -13,12 +13,14 @@
 *.dae
 *.c4d
 
-# Quartus & Qsys
-*.qsys
-*.qsys_edit*
+# Quartus 
 *.sopcinfo
 *.bak
 *greybox_tmp*
+
+# & Qsys
+*.qsys_edit*
+qsys/gpu_sys/*
 
 # Cadence
 *cds_libs*
@@ -32,3 +34,6 @@
 # Xcelium
 sim/xcelium/libraries/*
 sim/xcelium/.simvision/*
+sim/xcelium/xm*
+sim/xcelium/xrun*
+sim/xcelium/waves*
