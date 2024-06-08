@@ -27,4 +27,8 @@
 ../../rtl/vga-core/vga_pll.sv
 
 # tb
-../../tests/tb/vertex_processor_tb.sv
+# ../../tests/tb/vertex_processor_tb.sv
+../../tests/tb/tb.sv
+
+# tests
+../../tests/testcases/test_program.sv
