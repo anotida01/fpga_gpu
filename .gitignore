@@ -37,3 +37,10 @@ sim/xcelium/.simvision/*
 sim/xcelium/xm*
 sim/xcelium/xrun*
 sim/xcelium/waves*
+sim/xcelium/xcelium.d/*
+
+
+# Questasim
+sim/questa/libraries/*
+*.wlf
+
