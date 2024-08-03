@@ -87,6 +87,7 @@ module avlmm_dma_master (
       READ_REQ : begin
         ready_o = 0;
         read = 1;
+        byteenable = '1;
 
         if (~waitrequest) begin
           next_state = DONE;
