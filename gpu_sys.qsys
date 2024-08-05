@@ -70,9 +70,10 @@
  <parameter name="timeStamp" value="0" />
  <parameter name="useTestBenchNamingPattern" value="false" />
  <instanceScript></instanceScript>
+ <interface name="gpu_0_rop_conduit" internal="gpu_0.rop_conduit" />
  <interface
-   name="gpu_0_rop_conduit"
-   internal="gpu_0.rop_conduit"
+   name="gpu_0_vga_conduit"
+   internal="gpu_0.vga_conduit"
    type="conduit"
    dir="end" />
  <module
