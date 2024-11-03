@@ -763,7 +763,7 @@ module raster_loop (
     area <= reset ? 32'd0 : (en_area ? edge3_o : area);
   end
 
-  reg [26:0] i, j;
+  logic signed [26:0] i, j;
   wire [26:0] test_x, test_y;
   assign test_x = i + 26'h2000; // i + 0.5
   assign test_y = j + 26'h2000; // j + 0.5
@@ -876,8 +876,8 @@ module raster_loop (
     XXX
   } state_e;
 
-  localparam RASTER_MAX_X = 320;
-  localparam RASTER_MAX_Y = 240;
+  localparam RASTER_MAX_X = 26'sd320 << 14; // todo: this should be parameterized to FRACTATIONAL_BITS
+  localparam RASTER_MAX_Y = 26'sd240 << 14; // todo: this should be parameterized to FRACTATIONAL_BITS
 
   state_e state, next_state, prev_state;
   always_ff @( posedge clk ) begin : state_logic
@@ -939,8 +939,16 @@ module raster_loop (
       end
 
       SAVE_Z : begin
-        next_state = GET_WX;
-        en_z = 1;
+        // this logic captures situations where bounding box func returns values that are off screen
+        // not sure if we've encountered a bug that this code fixes... still, it feels right
+        // if ((i > RASTER_MAX_X) || (i < 26'sd0) || (j > RASTER_MAX_Y) || (j < 26'sd0))
+        //   next_state = IDLE;
+        if ((max_x > RASTER_MAX_X) || (max_y > RASTER_MAX_Y)) // this fixes the vertical lines issue
+          next_state = IDLE;
+        else begin
+          next_state = GET_WX;
+          en_z = 1;
+        end
       end
 
       GET_WX : begin
@@ -972,7 +980,7 @@ module raster_loop (
         next_state = INC_J;
 
       INC_J : begin
-        if (j <= max_y) begin
+        if ((j <= max_y) && (j <= RASTER_MAX_Y)) begin
           j_en = 1;
           next_state = GET_WX;
         end else
@@ -980,7 +988,7 @@ module raster_loop (
       end
 
       INC_I : begin
-        if (i <= max_x) begin
+        if ((i <= max_x) && (i <= RASTER_MAX_X)) begin
           i_en = 1;
           j_preload_val = min_y;
           j_preload = 1;
