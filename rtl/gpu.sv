@@ -1,10 +1,13 @@
 
+// todo: should these go into a global defines.svh?
 `define USE_VGA_ADAPTOR
+`define AXIL_FE
 
 module gpu (
 
   input  logic clk, reset,
 
+  `ifdef AVALON_FE
   // Front End - DMA Avalon MM Master port
   input  logic [31:0] master_readdata,
   input  logic [ 0:0] master_waitrequest,
@@ -20,8 +23,52 @@ module gpu (
   input  logic [ 3:0] slave_byteenable,
   output logic [31:0] slave_readdata,
   output logic [ 0:0] slave_waitrequest,
+  `endif
 
-  // VGA todo: may have to use the define here
+  `ifdef AXIL_FE
+  output logic              mstr_axi_awvalid_o,// AW
+  input  logic              mstr_axi_awready_i,
+  output logic [31:0]       mstr_axi_awaddr_o,
+  output logic [ 2:0]       mstr_axi_awprot_o,
+  output logic              mstr_axi_wvalid_o , // W
+  input  logic              mstr_axi_wready_i,
+  output logic [31:0]       mstr_axi_wdata_o,
+  output logic [32/8-1:0]   mstr_axi_wstrb_o,
+  input  logic              mstr_axi_bvalid_i, // B
+  input  logic [1:0]        mstr_axi_bresp_i,
+  output logic              mstr_axi_bready_o,
+  output logic              mstr_axi_arvalid_o,// AR
+  input  logic              mstr_axi_arready_i,
+  output logic [31:0]       mstr_axi_araddr_o,
+  output logic [ 2:0]       mstr_axi_arprot_o,
+  input  logic              mstr_axi_rvalid_i, // R
+  output logic              mstr_axi_rready_o,
+  input  logic [31:0]       mstr_axi_rdata_i,
+  input  logic [ 1:0]       mstr_axi_rresp_i,
+
+  // CTRL slave AXI Lite signals
+  input  logic              ctrl_axi_awvalid_i,// AW
+  output logic              ctrl_axi_awready_o,
+  input  logic [31:0]       ctrl_axi_awaddr_i,
+  input  logic [ 2:0]       ctrl_axi_awprot_i,
+  input  logic              ctrl_axi_wvalid_i , // W
+  output logic              ctrl_axi_wready_o,
+  input  logic [31:0]       ctrl_axi_wdata_i,
+  input  logic [32/8-1:0]   ctrl_axi_wstrb_i,
+  output logic              ctrl_axi_bvalid_o, // B
+  output logic [1:0]        ctrl_axi_bresp_o,
+  input  logic              ctrl_axi_bready_i,
+  input  logic              ctrl_axi_arvalid_i,// AR
+  output logic              ctrl_axi_arready_o,
+  input  logic [31:0]       ctrl_axi_araddr_i,
+  input  logic [ 2:0]       ctrl_axi_arprot_i,
+  output logic              ctrl_axi_rvalid_o, // R
+  input  logic              ctrl_axi_rready_i,
+  output logic [31:0]       ctrl_axi_rdata_o,
+  output logic [ 1:0]       ctrl_axi_rresp_o,
+  `endif
+
+ // VGA todo: may have to use the define here
   output logic [ 0:0] VGA_CLK,
   output logic [ 7:0] VGA_R,
   output logic [ 7:0] VGA_G,
@@ -44,6 +91,7 @@ module gpu (
   // dummy signals for now
   logic dma_ready, dma_valid;
 
+  `ifdef AVALON_FE
   avlmm_gpu_front_end avlmm_gpu_front_end0 (
 
     .clk,
@@ -80,6 +128,70 @@ module gpu (
     .dma_out
 
   );
+  `endif
+
+  `ifdef AXIL_FE
+  axil_gpu_front_end DUT (
+    .clk                (clk), 
+    .reset              (reset),
+    
+    // DMA AXI Master Interface
+    .mstr_axi_awvalid_o,
+    .mstr_axi_awready_i,
+    .mstr_axi_awaddr_o ,
+    .mstr_axi_awprot_o ,
+    .mstr_axi_wvalid_o ,
+    .mstr_axi_wready_i ,
+    .mstr_axi_wdata_o  ,
+    .mstr_axi_wstrb_o  ,
+    .mstr_axi_bvalid_i ,
+    .mstr_axi_bresp_i  ,
+    .mstr_axi_bready_o ,
+    .mstr_axi_arvalid_o,
+    .mstr_axi_arready_i,
+    .mstr_axi_araddr_o ,
+    .mstr_axi_arprot_o ,
+    .mstr_axi_rvalid_i ,
+    .mstr_axi_rready_o ,
+    .mstr_axi_rdata_i  ,
+    .mstr_axi_rresp_i  ,
+
+    .ctrl_axi_awvalid_i,
+    .ctrl_axi_awready_o,
+    .ctrl_axi_awaddr_i,
+    .ctrl_axi_awprot_i,
+    .ctrl_axi_wvalid_i,
+    .ctrl_axi_wready_o,
+    .ctrl_axi_wdata_i,
+    .ctrl_axi_wstrb_i,
+    .ctrl_axi_bvalid_o,
+    .ctrl_axi_bresp_o,
+    .ctrl_axi_bready_i,
+    .ctrl_axi_arvalid_i,
+    .ctrl_axi_arready_o,
+    .ctrl_axi_araddr_i,
+    .ctrl_axi_arprot_i,
+    .ctrl_axi_rvalid_o,
+    .ctrl_axi_rready_i,
+    .ctrl_axi_rdata_o,
+    .ctrl_axi_rresp_o,
+
+    // from gpu
+
+    // from gpu to dma
+    .gpu_dma_ready(gpu_dma_ready),
+    .gpu_dma_valid(gpu_valid),
+    .gpu_dma_address(gpu_address),
+    .gpu_ctrl_done,
+
+    // to gpu
+    .gpu_start,
+    .dma_ready,
+    .dma_valid,
+    .dma_out
+
+  );
+  `endif
 
 
   logic gpu_rop_valid;

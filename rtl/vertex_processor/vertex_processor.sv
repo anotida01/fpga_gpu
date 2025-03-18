@@ -464,7 +464,7 @@ module vertex_processor_sm_v2 (
   always_ff @( posedge clk ) begin : gpu_address_reg
     
     if (en_gpu_address_reg)
-      gpu_address_o <= gpu_address_o + 32'd4;
+      gpu_address_o <= gpu_address_o + 32'd1; // todo: this value is dependant on the type of front end in use!
     else
       gpu_address_o <= gpu_address_o;
 

@@ -38,8 +38,8 @@ module axil_ctrl_slave (
   // register_file
   gpu_ctrl_regfile regf0 (
     .clk, .reset,
-    .rd_en_p0_i     (en_p0),
-    .wr_en_p0_i     (1'h0), // gpu sm is readonly for now
+    .rd_en_p0_i     (1'h0), // todo: 1 or 0?
+    .wr_en_p0_i     (en_p0),
     .addr_p0_i      (addr_p0),
     .writedata_p0_i (writedata_p0),
 
