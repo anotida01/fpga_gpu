@@ -76,7 +76,9 @@ module gpu (
   output logic [ 0:0] VGA_BLANK_N,
   output logic [ 0:0] VGA_SYNC_N,
   output logic [ 0:0] VGA_VS,
-  output logic [ 0:0] VGA_HS
+  output logic [ 0:0] VGA_HS,
+
+  output logic        irq_gpu
 
 );
   
@@ -131,7 +133,7 @@ module gpu (
   `endif
 
   `ifdef AXIL_FE
-  axil_gpu_front_end DUT (
+  axil_gpu_front_end axil_gpu_front_end0 (
     .clk                (clk), 
     .reset              (reset),
     
@@ -176,8 +178,6 @@ module gpu (
     .ctrl_axi_rdata_o,
     .ctrl_axi_rresp_o,
 
-    // from gpu
-
     // from gpu to dma
     .gpu_dma_ready(gpu_dma_ready),
     .gpu_dma_valid(gpu_valid),
@@ -188,7 +188,10 @@ module gpu (
     .gpu_start,
     .dma_ready,
     .dma_valid,
-    .dma_out
+    .dma_out,
+
+    // irq to cpu
+    .irq_gpu
 
   );
   `endif

@@ -56,7 +56,11 @@ module axil_gpu_front_end (
   output logic        gpu_start,
   output logic        dma_ready,
   output logic        dma_valid,
-  output logic [31:0] dma_out
+  output logic [31:0] dma_out,
+
+  // irq to cpu
+  output logic        irq_gpu
+
 );
 
   logic [31:0] mem_offset_addr;
@@ -101,7 +105,8 @@ module axil_gpu_front_end (
     .o_wb_err           (ctrl_wb_err),
     .start_o            (gpu_start),
     .ready_i            (gpu_ctrl_done),
-    .mem_offset_addr_o  (mem_offset_addr)
+    .mem_offset_addr_o  (mem_offset_addr),
+    .irq_gpu            (irq_gpu)
   );
 
   axlite2wbsp ctrl_axil2wbsp_inst (
