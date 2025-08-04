@@ -1,0 +1,87 @@
+addrmap vga_ctrl{
+    name = "VGA Controller regmap";
+    desc = "
+    !!! tip
+        This is an example output from the [PeakRDL HTML](https://github.com/SystemRDL/PeakRDL-html)
+        register space documentation generator.
+
+        Look for these 'tip' boxes throughout this demo for more highlights of features.
+
+    Configuration & status address space for FPGA GPU.
+
+    ";
+    reg {
+        regwidth = 32;
+        name = "VGA Controller Front Buffer Address";
+        desc = "Starting address of front buffer";
+        field {
+          // desc = "Writing 0x1 to this register when it's read value is 0x0 will start the GPU rendering process.";
+          sw = rw;
+          hw = w;
+        } BUF_ADDR [32] = 0xC8000000;
+    } FRONT_BUF @0x0;
+
+    reg  {
+        regwidth = 32;
+        name = "VGA Controller Back Buffer Address";
+        desc = "Starting address of back buffer";
+        field {
+          // desc = "When read as 0x1, it signals that GPU is done fetching current object. Write 0x1 to clear";
+          sw = rw;
+          hw = w;
+        } BACK_BUF[32] = 0x0;
+    } BACK_BUF;
+
+    reg  {
+        regwidth = 32;
+        name = "VGA Controller Resolution";
+        desc = "Current VGA Controller Resolutoion";
+        field {
+          // desc = "Write 0x1 to clear GPU_DONE INTR";
+          sw = r;
+          hw = w;
+        } X[16] = 0x0;
+
+        field {
+          // desc = "Write 0x1 to clear GPU_DONE INTR";
+          sw = r;
+          hw = w;
+        } Y[16] = 0x0;
+
+    } RESOLUTION;
+
+    reg  {
+        regwidth = 32;  // Register width: 8 bits
+        name = "VGA Controller status & control";
+        desc = "VGA Controller status register on read, control register on write.";
+
+        field {
+          desc = "
+            Writing the value 1 into the FRONT_BUF register causes S to be set to 1.
+            Then, when the swap of the Buffer and Backbuffer registers has been completed S is reset back to 0."
+          ;
+          sw = r;
+          hw = w;
+        } S[1] = 0x0;
+
+        field {
+          desc = "
+            If configured with A = 0, then the pixel controller expects addresses to contain X and Y fields.
+            But if A = 1, then the controller expects addresses to be consecutive values starting from 0 and ending at the total number of pixels−1."
+          ;
+          sw = r;
+          hw = w;
+        } A[1] = 0x0;
+
+        field {
+          desc = "
+            The EN field is used to enable or disable the DMA controller.
+            If this bit is set to 0, the DMA controller will be turned off."
+          ;
+          sw = r;
+          hw = w;
+        } EN[1] = 0x0;
+
+    } STAT_CTRL;
+
+};

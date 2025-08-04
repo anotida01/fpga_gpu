@@ -1,0 +1,78 @@
+addrmap gpu_ctrl {
+    name = "FPGA GPU CTRL Register Map";
+    desc = "
+    !!! tip
+        This is an example output from the [PeakRDL HTML](https://github.com/SystemRDL/PeakRDL-html)
+        register space documentation generator.
+
+        Look for these 'tip' boxes throughout this demo for more highlights of features.
+
+    Configuration & status address space for FPGA GPU.
+
+    ";
+    reg {
+        regwidth = 32; // Register width: 16 bits
+        desc = "Main GPU Control Register";
+        field {
+          desc = "Writing 0x1 to this register when it's read value is 0x0 will start the GPU rendering process.";
+          sw = rw;
+          hw = w;
+        } GPU_START [1]  = 0x0;   // Read/Write field (4 bits)
+    } GPU_CTRL @0x0;
+
+    reg  {
+        regwidth = 32;  // Register width: 8 bits
+        name = "GPU Interrupt Status";
+        desc = "
+            Contains GPU Interrupt status bits
+        ";
+        field {
+          desc = "When read as 0x1, it signals that GPU is done fetching current object. Write 0x1 to clear";
+          sw = rw;
+        } GPU_DONE_STAT[1] = 0x0; // GPU DONE INTR
+
+        field {
+          sw = r;
+        } UNUSED[31] = 0x0; // GPU DONE INTR
+        
+    } GPU_INTR_STATUS;
+
+    reg  {
+        regwidth = 32;  // Register width: 8 bits
+        name = "GPU Interrupt Clear";
+        desc = "
+            Used to clear interrupts in GPU_INTR_STATUS
+        ";
+        field {
+          desc = "Write 0x1 to clear GPU_DONE INTR";
+          sw = w;
+        } GPU_DONE_CLR[1] = 0x0; // GPU DONE INTR
+
+        field {
+        } UNUSED[31] = 0x0; // GPU DONE INTR
+        
+    } GPU_INTR_CLEAR;
+
+    reg  {
+        regwidth = 32;  // Register width: 8 bits
+        name = "GPU Front End Memory Address Offset";
+        desc = "
+            MEM_OFFSET is the base address of where the object is stored in GPU memory.
+            When fetching the object, GPU will read MEM_OFFSET + 4*N until the object is entirely read.
+        ";
+        field {} MEM_OFFSET[32] = 0x0; // Status bits (8 bits)
+        
+    } GPU_FE_MEM_OFFSET;
+
+    reg  {
+        regwidth = 32;  // Register width: 8 bits
+        name = "GPU Back End Memory Address Offset";
+        desc = "
+            MEM_OFFSET is the base address of where the VGA Framebuffer is mapped in GPU memory
+            When writing the pixel data, GPU will write from MEM_OFFSET + 4*N until the entire framebuffer has been written
+        ";
+        field {} MEM_OFFSET[32] = 0x0; // Status bits (8 bits)
+        
+    } GPU_BE_MEM_OFFSET;
+    
+};
