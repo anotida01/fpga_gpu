@@ -21,7 +21,7 @@ module tb ();
     logic gpu_0_vga_conduit_vga_sync_n  ;
     logic gpu_0_vga_conduit_vga_vs      ;
     
-    gpu_sys dut (
+    gpu_axil_sys dut (
     .gpu_0_vga_conduit_vga_b       ,       // gpu_0_vga_conduit.vga_b
     .gpu_0_vga_conduit_vga_blank_n , //                  .vga_blank_n
     .gpu_0_vga_conduit_vga_clk     ,     //                  .vga_clk

@@ -26,7 +26,7 @@ module axil_dma_master (
   input  logic [31:0] address_i,
 
   // from GPU CTRL REG
-  input  logic [31:0] mem_offset_addr_i
+  input  logic [31:0] input_mem_offset_addr_i
 
 );
 
@@ -67,7 +67,7 @@ module axil_dma_master (
     valid_o = 0;
 
     // to wb
-    wb_addr_o = mem_offset_addr_i + address_i_reg;
+    wb_addr_o = input_mem_offset_addr_i + address_i_reg;
     wb_cyc_o = 0;
     wb_stb_o = 0;
     wb_we_o = 0;

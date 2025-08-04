@@ -57,13 +57,16 @@ module axil_gpu_front_end (
   output logic        dma_ready,
   output logic        dma_valid,
   output logic [31:0] dma_out,
+  
+  // top bus backend
+  output logic [31:0] output_mem_offset_addr_o,
 
   // irq to cpu
   output logic        irq_gpu
 
 );
 
-  logic [31:0] mem_offset_addr;
+  logic [31:0] input_mem_offset_addr;
   wire reset_n = ~reset;
 
   // WB Master Port
@@ -93,20 +96,21 @@ module axil_gpu_front_end (
   axil_ctrl_slave avlmm_ctrl_slave0 (
     .clk,
     .reset,
-    .i_wb_cyc           (ctrl_wb_cyc),
-    .i_wb_stb           (ctrl_wb_stb),
-    .i_wb_we            (ctrl_wb_we),
-    .i_wb_addr          (ctrl_wb_addr),
-    .i_wb_data          (ctrl_wb_data_i),
-    .i_wb_sel           (ctrl_wb_sel),
-    .o_wb_data          (ctrl_wb_data_o),
-    .o_wb_ack           (ctrl_wb_ack),
-    .o_wb_stall         (ctrl_wb_stall),
-    .o_wb_err           (ctrl_wb_err),
-    .start_o            (gpu_start),
-    .ready_i            (gpu_ctrl_done),
-    .mem_offset_addr_o  (mem_offset_addr),
-    .irq_gpu            (irq_gpu)
+    .i_wb_cyc                 (ctrl_wb_cyc),
+    .i_wb_stb                 (ctrl_wb_stb),
+    .i_wb_we                  (ctrl_wb_we),
+    .i_wb_addr                (ctrl_wb_addr),
+    .i_wb_data                (ctrl_wb_data_i),
+    .i_wb_sel                 (ctrl_wb_sel),
+    .o_wb_data                (ctrl_wb_data_o),
+    .o_wb_ack                 (ctrl_wb_ack),
+    .o_wb_stall               (ctrl_wb_stall),
+    .o_wb_err                 (ctrl_wb_err),
+    .start_o                  (gpu_start),
+    .ready_i                  (gpu_ctrl_done),
+    .input_mem_offset_addr_o  (input_mem_offset_addr),
+    .output_mem_offset_addr_o (output_mem_offset_addr_o),
+    .irq_gpu                  (irq_gpu)
   );
 
   axlite2wbsp ctrl_axil2wbsp_inst (
@@ -172,7 +176,7 @@ module axil_gpu_front_end (
     .address_i          (gpu_dma_address),
     
     // from GPU CTRL REGs
-    .mem_offset_addr_i  (mem_offset_addr)
+    .input_mem_offset_addr_i  (input_mem_offset_addr)
   );
 
   wbm2axilite #(

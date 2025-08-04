@@ -29,9 +29,9 @@ THE SOFTWARE.
 `default_nettype none
 
 /*
- * AXI4 lite 2x2 crossbar (wrapper)
+ * AXI4 lite 3x2 crossbar (wrapper)
  */
-module axil_crossbar_wrap_2x2 #
+module axil_crossbar_wrap_3x2 #
 (
     // Width of data bus in bits
     parameter DATA_WIDTH = 32,
@@ -43,6 +43,8 @@ module axil_crossbar_wrap_2x2 #
     parameter S00_ACCEPT = 16,
     // Number of concurrent operations
     parameter S01_ACCEPT = 16,
+    // Number of concurrent operations
+    parameter S02_ACCEPT = 16,
     // Number of regions per master interface
     parameter M_REGIONS = 1,
     // Master interface base addresses
@@ -53,10 +55,10 @@ module axil_crossbar_wrap_2x2 #
     parameter M00_ADDR_WIDTH = {M_REGIONS{32'd24}},
     // Read connections between interfaces
     // S_COUNT bits
-    parameter M00_CONNECT_READ = 2'b11,
+    parameter M00_CONNECT_READ = 3'b111,
     // Write connections between interfaces
     // S_COUNT bits
-    parameter M00_CONNECT_WRITE = 2'b11,
+    parameter M00_CONNECT_WRITE = 3'b111,
     // Number of concurrent operations for each master interface
     parameter M00_ISSUE = 16,
     // Secure master (fail operations based on awprot/arprot)
@@ -69,10 +71,10 @@ module axil_crossbar_wrap_2x2 #
     parameter M01_ADDR_WIDTH = {M_REGIONS{32'd24}},
     // Read connections between interfaces
     // S_COUNT bits
-    parameter M01_CONNECT_READ = 2'b11,
+    parameter M01_CONNECT_READ = 3'b111,
     // Write connections between interfaces
     // S_COUNT bits
-    parameter M01_CONNECT_WRITE = 2'b11,
+    parameter M01_CONNECT_WRITE = 3'b111,
     // Number of concurrent operations for each master interface
     parameter M01_ISSUE = 16,
     // Secure master (fail operations based on awprot/arprot)
@@ -107,6 +109,21 @@ module axil_crossbar_wrap_2x2 #
     // Slave interface R channel register type (output)
     // 0 to bypass, 1 for simple buffer, 2 for skid buffer
     parameter S01_R_REG_TYPE = 2,
+    // Slave interface AW channel register type (input)
+    // 0 to bypass, 1 for simple buffer, 2 for skid buffer
+    parameter S02_AW_REG_TYPE = 0,
+    // Slave interface W channel register type (input)
+    // 0 to bypass, 1 for simple buffer, 2 for skid buffer
+    parameter S02_W_REG_TYPE = 0,
+    // Slave interface B channel register type (output)
+    // 0 to bypass, 1 for simple buffer, 2 for skid buffer
+    parameter S02_B_REG_TYPE = 1,
+    // Slave interface AR channel register type (input)
+    // 0 to bypass, 1 for simple buffer, 2 for skid buffer
+    parameter S02_AR_REG_TYPE = 0,
+    // Slave interface R channel register type (output)
+    // 0 to bypass, 1 for simple buffer, 2 for skid buffer
+    parameter S02_R_REG_TYPE = 2,
     // Master interface AW channel register type (output)
     // 0 to bypass, 1 for simple buffer, 2 for skid buffer
     parameter M00_AW_REG_TYPE = 1,
@@ -185,6 +202,26 @@ module axil_crossbar_wrap_2x2 #
     output wire                     s01_axil_rvalid,
     input  wire                     s01_axil_rready,
 
+    input  wire [ADDR_WIDTH-1:0]    s02_axil_awaddr,
+    input  wire [2:0]               s02_axil_awprot,
+    input  wire                     s02_axil_awvalid,
+    output wire                     s02_axil_awready,
+    input  wire [DATA_WIDTH-1:0]    s02_axil_wdata,
+    input  wire [STRB_WIDTH-1:0]    s02_axil_wstrb,
+    input  wire                     s02_axil_wvalid,
+    output wire                     s02_axil_wready,
+    output wire [1:0]               s02_axil_bresp,
+    output wire                     s02_axil_bvalid,
+    input  wire                     s02_axil_bready,
+    input  wire [ADDR_WIDTH-1:0]    s02_axil_araddr,
+    input  wire [2:0]               s02_axil_arprot,
+    input  wire                     s02_axil_arvalid,
+    output wire                     s02_axil_arready,
+    output wire [DATA_WIDTH-1:0]    s02_axil_rdata,
+    output wire [1:0]               s02_axil_rresp,
+    output wire                     s02_axil_rvalid,
+    input  wire                     s02_axil_rready,
+
     /*
      * AXI lite master interfaces
      */
@@ -229,7 +266,7 @@ module axil_crossbar_wrap_2x2 #
     output wire                     m01_axil_rready
 );
 
-localparam S_COUNT = 2;
+localparam S_COUNT = 3;
 localparam M_COUNT = 2;
 
 // parameter sizing helpers
@@ -263,7 +300,7 @@ axil_crossbar #(
     .DATA_WIDTH(DATA_WIDTH),
     .ADDR_WIDTH(ADDR_WIDTH),
     .STRB_WIDTH(STRB_WIDTH),
-    .S_ACCEPT({ w_32(S01_ACCEPT), w_32(S00_ACCEPT) }),
+    .S_ACCEPT({ w_32(S02_ACCEPT), w_32(S01_ACCEPT), w_32(S00_ACCEPT) }),
     .M_REGIONS(M_REGIONS),
     .M_BASE_ADDR({ w_a_r(M01_BASE_ADDR), w_a_r(M00_BASE_ADDR) }),
     .M_ADDR_WIDTH({ w_32_r(M01_ADDR_WIDTH), w_32_r(M00_ADDR_WIDTH) }),
@@ -271,11 +308,11 @@ axil_crossbar #(
     .M_CONNECT_WRITE({ w_s(M01_CONNECT_WRITE), w_s(M00_CONNECT_WRITE) }),
     .M_ISSUE({ w_32(M01_ISSUE), w_32(M00_ISSUE) }),
     .M_SECURE({ w_1(M01_SECURE), w_1(M00_SECURE) }),
-    .S_AR_REG_TYPE({ w_2(S01_AR_REG_TYPE), w_2(S00_AR_REG_TYPE) }),
-    .S_R_REG_TYPE({ w_2(S01_R_REG_TYPE), w_2(S00_R_REG_TYPE) }),
-    .S_AW_REG_TYPE({ w_2(S01_AW_REG_TYPE), w_2(S00_AW_REG_TYPE) }),
-    .S_W_REG_TYPE({ w_2(S01_W_REG_TYPE), w_2(S00_W_REG_TYPE) }),
-    .S_B_REG_TYPE({ w_2(S01_B_REG_TYPE), w_2(S00_B_REG_TYPE) }),
+    .S_AR_REG_TYPE({ w_2(S02_AR_REG_TYPE), w_2(S01_AR_REG_TYPE), w_2(S00_AR_REG_TYPE) }),
+    .S_R_REG_TYPE({ w_2(S02_R_REG_TYPE), w_2(S01_R_REG_TYPE), w_2(S00_R_REG_TYPE) }),
+    .S_AW_REG_TYPE({ w_2(S02_AW_REG_TYPE), w_2(S01_AW_REG_TYPE), w_2(S00_AW_REG_TYPE) }),
+    .S_W_REG_TYPE({ w_2(S02_W_REG_TYPE), w_2(S01_W_REG_TYPE), w_2(S00_W_REG_TYPE) }),
+    .S_B_REG_TYPE({ w_2(S02_B_REG_TYPE), w_2(S01_B_REG_TYPE), w_2(S00_B_REG_TYPE) }),
     .M_AR_REG_TYPE({ w_2(M01_AR_REG_TYPE), w_2(M00_AR_REG_TYPE) }),
     .M_R_REG_TYPE({ w_2(M01_R_REG_TYPE), w_2(M00_R_REG_TYPE) }),
     .M_AW_REG_TYPE({ w_2(M01_AW_REG_TYPE), w_2(M00_AW_REG_TYPE) }),
@@ -285,25 +322,25 @@ axil_crossbar #(
 axil_crossbar_inst (
     .clk(clk),
     .rst(rst),
-    .s_axil_awaddr({ s01_axil_awaddr, s00_axil_awaddr }),
-    .s_axil_awprot({ s01_axil_awprot, s00_axil_awprot }),
-    .s_axil_awvalid({ s01_axil_awvalid, s00_axil_awvalid }),
-    .s_axil_awready({ s01_axil_awready, s00_axil_awready }),
-    .s_axil_wdata({ s01_axil_wdata, s00_axil_wdata }),
-    .s_axil_wstrb({ s01_axil_wstrb, s00_axil_wstrb }),
-    .s_axil_wvalid({ s01_axil_wvalid, s00_axil_wvalid }),
-    .s_axil_wready({ s01_axil_wready, s00_axil_wready }),
-    .s_axil_bresp({ s01_axil_bresp, s00_axil_bresp }),
-    .s_axil_bvalid({ s01_axil_bvalid, s00_axil_bvalid }),
-    .s_axil_bready({ s01_axil_bready, s00_axil_bready }),
-    .s_axil_araddr({ s01_axil_araddr, s00_axil_araddr }),
-    .s_axil_arprot({ s01_axil_arprot, s00_axil_arprot }),
-    .s_axil_arvalid({ s01_axil_arvalid, s00_axil_arvalid }),
-    .s_axil_arready({ s01_axil_arready, s00_axil_arready }),
-    .s_axil_rdata({ s01_axil_rdata, s00_axil_rdata }),
-    .s_axil_rresp({ s01_axil_rresp, s00_axil_rresp }),
-    .s_axil_rvalid({ s01_axil_rvalid, s00_axil_rvalid }),
-    .s_axil_rready({ s01_axil_rready, s00_axil_rready }),
+    .s_axil_awaddr({ s02_axil_awaddr, s01_axil_awaddr, s00_axil_awaddr }),
+    .s_axil_awprot({ s02_axil_awprot, s01_axil_awprot, s00_axil_awprot }),
+    .s_axil_awvalid({ s02_axil_awvalid, s01_axil_awvalid, s00_axil_awvalid }),
+    .s_axil_awready({ s02_axil_awready, s01_axil_awready, s00_axil_awready }),
+    .s_axil_wdata({ s02_axil_wdata, s01_axil_wdata, s00_axil_wdata }),
+    .s_axil_wstrb({ s02_axil_wstrb, s01_axil_wstrb, s00_axil_wstrb }),
+    .s_axil_wvalid({ s02_axil_wvalid, s01_axil_wvalid, s00_axil_wvalid }),
+    .s_axil_wready({ s02_axil_wready, s01_axil_wready, s00_axil_wready }),
+    .s_axil_bresp({ s02_axil_bresp, s01_axil_bresp, s00_axil_bresp }),
+    .s_axil_bvalid({ s02_axil_bvalid, s01_axil_bvalid, s00_axil_bvalid }),
+    .s_axil_bready({ s02_axil_bready, s01_axil_bready, s00_axil_bready }),
+    .s_axil_araddr({ s02_axil_araddr, s01_axil_araddr, s00_axil_araddr }),
+    .s_axil_arprot({ s02_axil_arprot, s01_axil_arprot, s00_axil_arprot }),
+    .s_axil_arvalid({ s02_axil_arvalid, s01_axil_arvalid, s00_axil_arvalid }),
+    .s_axil_arready({ s02_axil_arready, s01_axil_arready, s00_axil_arready }),
+    .s_axil_rdata({ s02_axil_rdata, s01_axil_rdata, s00_axil_rdata }),
+    .s_axil_rresp({ s02_axil_rresp, s01_axil_rresp, s00_axil_rresp }),
+    .s_axil_rvalid({ s02_axil_rvalid, s01_axil_rvalid, s00_axil_rvalid }),
+    .s_axil_rready({ s02_axil_rready, s01_axil_rready, s00_axil_rready }),
     .m_axil_awaddr({ m01_axil_awaddr, m00_axil_awaddr }),
     .m_axil_awprot({ m01_axil_awprot, m00_axil_awprot }),
     .m_axil_awvalid({ m01_axil_awvalid, m00_axil_awvalid }),

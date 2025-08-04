@@ -68,6 +68,26 @@ module axil_sys_top #(
   logic                   gpu_ctrl_axil_rvalid;
   logic                   gpu_ctrl_axil_rready;
 
+  logic [ADDR_WIDTH-1:0]  gpu_rop_axil_awaddr;
+  logic [2:0]             gpu_rop_axil_awprot;
+  logic                   gpu_rop_axil_awvalid;
+  logic                   gpu_rop_axil_awready;
+  logic [DATA_WIDTH-1:0]  gpu_rop_axil_wdata;
+  logic [STRB_WIDTH-1:0]  gpu_rop_axil_wstrb;
+  logic                   gpu_rop_axil_wvalid;
+  logic                   gpu_rop_axil_wready;
+  logic [1:0]             gpu_rop_axil_bresp;
+  logic                   gpu_rop_axil_bvalid;
+  logic                   gpu_rop_axil_bready;
+  logic [ADDR_WIDTH-1:0]  gpu_rop_axil_araddr;
+  logic [2:0]             gpu_rop_axil_arprot;
+  logic                   gpu_rop_axil_arvalid;
+  logic                   gpu_rop_axil_arready;
+  logic [DATA_WIDTH-1:0]  gpu_rop_axil_rdata;
+  logic [1:0]             gpu_rop_axil_rresp;
+  logic                   gpu_rop_axil_rvalid;
+  logic                   gpu_rop_axil_rready;
+
   logic [ADDR_WIDTH-1:0]  ram_axil_awaddr ;
   logic [2:0]             ram_axil_awprot ;
   logic                   ram_axil_awvalid;
@@ -91,7 +111,7 @@ module axil_sys_top #(
   /*
    * AXI4-Lite Crossbar
    */
-  axil_crossbar_wrap_2x2 crossbar_bus_inst (
+  axil_crossbar_wrap_3x2 crossbar_bus_inst (
     .clk(clk),
     .rst(reset),
 
@@ -135,6 +155,26 @@ module axil_sys_top #(
     .s01_axil_rresp     (gpu_mstr_axil_rresp),
     .s01_axil_rvalid    (gpu_mstr_axil_rvalid),
     .s01_axil_rready    (gpu_mstr_axil_rready),
+
+    .s02_axil_awaddr    (gpu_rop_axil_awaddr),
+    .s02_axil_awprot    (gpu_rop_axil_awprot),
+    .s02_axil_awvalid   (gpu_rop_axil_awvalid),
+    .s02_axil_awready   (gpu_rop_axil_awready),
+    .s02_axil_wdata     (gpu_rop_axil_wdata),
+    .s02_axil_wstrb     (gpu_rop_axil_wstrb),
+    .s02_axil_wvalid    (gpu_rop_axil_wvalid),
+    .s02_axil_wready    (gpu_rop_axil_wready),
+    .s02_axil_bresp     (gpu_rop_axil_bresp),
+    .s02_axil_bvalid    (gpu_rop_axil_bvalid),
+    .s02_axil_bready    (gpu_rop_axil_bready),
+    .s02_axil_araddr    (gpu_rop_axil_araddr),
+    .s02_axil_arprot    (gpu_rop_axil_arprot),
+    .s02_axil_arvalid   (gpu_rop_axil_arvalid),
+    .s02_axil_arready   (gpu_rop_axil_arready),
+    .s02_axil_rdata     (gpu_rop_axil_rdata),
+    .s02_axil_rresp     (gpu_rop_axil_rresp),
+    .s02_axil_rvalid    (gpu_rop_axil_rvalid),
+    .s02_axil_rready    (gpu_rop_axil_rready),
 
     .m00_axil_awaddr    (ram_axil_awaddr),
     .m00_axil_awprot    (ram_axil_awprot),
@@ -183,7 +223,7 @@ module axil_sys_top #(
    */
   axil_ram #(
     .DATA_WIDTH(32),
-    .ADDR_WIDTH(16)
+    .ADDR_WIDTH(26)
   ) axil_ram0 (
     .clk              (clk),
     .rst              (reset),
@@ -249,6 +289,27 @@ module axil_sys_top #(
     .ctrl_axi_rvalid_o    (gpu_ctrl_axil_rvalid),
     .ctrl_axi_rready_i    (gpu_ctrl_axil_rready),
     .ctrl_axi_rdata_o     (gpu_ctrl_axil_rdata),
-    .ctrl_axi_rresp_o     (gpu_ctrl_axil_rresp)
+    .ctrl_axi_rresp_o     (gpu_ctrl_axil_rresp),
+
+    .rop_axi_awvalid_o    (gpu_rop_axil_awvalid),
+    .rop_axi_awready_i    (gpu_rop_axil_awready),
+    .rop_axi_awaddr_o     (gpu_rop_axil_awaddr),
+    .rop_axi_awprot_o     (gpu_rop_axil_awprot),
+    .rop_axi_wvalid_o     (gpu_rop_axil_wvalid),
+    .rop_axi_wready_i     (gpu_rop_axil_wready),
+    .rop_axi_wdata_o      (gpu_rop_axil_wdata),
+    .rop_axi_wstrb_o      (gpu_rop_axil_wstrb),
+    .rop_axi_bvalid_i     (gpu_rop_axil_bvalid),
+    .rop_axi_bresp_i      (gpu_rop_axil_bresp),
+    .rop_axi_bready_o     (gpu_rop_axil_bready),
+    .rop_axi_arvalid_o    (gpu_rop_axil_arvalid),
+    .rop_axi_arready_i    (gpu_rop_axil_arready),
+    .rop_axi_araddr_o     (gpu_rop_axil_araddr),
+    .rop_axi_arprot_o     (gpu_rop_axil_arprot),
+    .rop_axi_rvalid_i     (gpu_rop_axil_rvalid),
+    .rop_axi_rready_o     (gpu_rop_axil_rready),
+    .rop_axi_rdata_i      (gpu_rop_axil_rdata),
+    .rop_axi_rresp_i      (gpu_rop_axil_rresp)
+
   );
 endmodule

@@ -22,14 +22,15 @@ module axil_ctrl_slave (
   input  logic        ready_i,
 
   // to avlmm DMA master
-  output logic [31:0] mem_offset_addr_o,
+  output logic [31:0] input_mem_offset_addr_o,
+  output logic [31:0] output_mem_offset_addr_o,
 
   // irq signals to outside -- this might become just a general GPU IRQ
   output logic irq_gpu
 
 );
 
-  localparam NUM_REGS = 4;
+  localparam NUM_REGS = 5;
   localparam ONES = 32'hFFFFFFFF;
   logic [31:0] regf_writemask [NUM_REGS];
 
@@ -79,7 +80,8 @@ module axil_ctrl_slave (
     .writemask(regf_writemask),
 
     .regf_start,
-    .mem_offset_addr_o,
+    .input_mem_offset_addr_o,
+    .output_mem_offset_addr_o,
     .intr_clr_gpu_done_o(irq_clr_gpu_done),
     .intr_stat_gpu_done_i(irq_gpu_done)
   );
@@ -301,7 +303,7 @@ endmodule
 
 
 module gpu_ctrl_regfile #(
-  parameter NUM_REGS = 4
+  parameter NUM_REGS = 5
 )(
   input  logic clk, reset,
 
@@ -324,7 +326,8 @@ module gpu_ctrl_regfile #(
 
   // register bit fields
   output logic        regf_start,
-  output logic [31:0] mem_offset_addr_o,
+  output logic [31:0] input_mem_offset_addr_o,
+  output logic [31:0] output_mem_offset_addr_o,
   output logic        intr_clr_gpu_done_o,
   input  logic        intr_stat_gpu_done_i
 
@@ -350,7 +353,8 @@ module gpu_ctrl_regfile #(
 
   assign regf_start          = registers[0][0];
   assign gpu_reset_req       = registers[0][1];
-  assign mem_offset_addr_o   = registers[3];
+  assign input_mem_offset_addr_o   = registers[3];
+  assign output_mem_offset_addr_o   = registers[4];
   assign intr_clr_gpu_done_o = registers[2][0];
 
   // Read operations for Port 1 and Port 2
@@ -390,7 +394,6 @@ module gpu_ctrl_regfile #(
     // constant assignments
     registers[1][31:1] <= '0;
     registers[1][0]    <= intr_stat_gpu_done_i;
-    // registers[2][31:1] <= '0;
 
     // self clearing
     if (|registers[2]) registers[2] <= '0;
