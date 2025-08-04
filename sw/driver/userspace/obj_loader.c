@@ -50,11 +50,28 @@ int main(int argc, char *argv[]) {
   // now we need to render a frame. we can modify the kernel driver so that we can send commands such as modify rotation etc?
   // the simple goal for now should be to create an application that rotates the drawn object. we can also make it interactive with the keyboard!
 
+  // print contents of CTRL_STAT register
+  if (ioctl(gpu_fd, VGA_IOCTL_PRINT_STAT) < 0) {
+    perror("ioctl failed to swap vga buffers!");
+    return 1;
+  }
+
+  // clear the buffer that will be drawn to!
+  if (ioctl(gpu_fd, VGA_IOCTL_CLR_BACK_BUF) < 0) {
+    perror("ioctl failed to clear back buffer!");
+    return 1;
+  }
+
   gpu_start(); // start drawing
 
   printf("Waiting for eventfd signal...\n");
   uint64_t value;
   read(efd, &value, sizeof(value));  // This blocks until signaled
+
+  if (ioctl(gpu_fd, VGA_IOCTL_SWAP) < 0) {
+    perror("ioctl failed to swap vga buffers!");
+    return 1;
+  }
 
   printf("GPU is done. Program exiting...\n");
 

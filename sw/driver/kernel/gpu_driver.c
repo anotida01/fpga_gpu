@@ -3,6 +3,7 @@
  * @brief Kernel driver for the FPGA GPU.
  */
 
+// linux headers
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
@@ -14,10 +15,12 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/eventfd.h>
+#include <linux/delay.h>
 
 // local headers
 #include "../gpu.h"
 #include "../gpu_regs.h"
+#include "../vga_controller.h"
 #include "../address_map_arm.h"
 #include "../interrupt_ID.h"
 
@@ -31,6 +34,8 @@ static struct device* gpu_device = NULL;
 static struct cdev    gpu_cdev;
 static volatile uint32_t* gpu_ctrl_ptr = NULL;
 static volatile gpu_ctrl_t* gpu_ctrl;
+static volatile uint32_t* vga_ctrl_ptr = NULL;
+static volatile vga_ctrl_t* vga_ctrl;
 static volatile void* lw_bridge_ptr = NULL;
 static struct eventfd_ctx *efd_ctx = NULL;
 
@@ -41,6 +46,9 @@ static long gpu_ioctl(struct file *, unsigned int, unsigned long);
 static int  gpu_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos);
 static irq_handler_t gpu_irq_handler(int irq, void *dev_id, struct pt_regs *regs);
 static int gpu_set_eventfd(unsigned long arg);
+static int vga_swap(void);
+static int vga_stat(void);
+static int vga_clr_back_buf(void);
 
 /* chardev file ops struct */
 static struct file_operations fops = {
@@ -51,6 +59,8 @@ static struct file_operations fops = {
   .unlocked_ioctl = gpu_ioctl,
 };
 
+/* private defines*/
+#define VGA_CTRL_SYNC_TIMEOUT 100
 
 /**
  * @brief Initializes the GPU driver.
@@ -109,6 +119,17 @@ static int __init gpu_init(void) {
     printk(KERN_ERR "FPGA_GPU: Failed to register interrupt# %d", GPU_IRQ);
     return -EBUSY;
   }
+
+  /* set gpu memory offset addresses. hardcoded for now */
+  printk(KERN_INFO "FPGA_GPU: Setting video buffer addresses\n");
+  gpu_ctrl->GPU_BE_MEM_OFFSET.f.MEM_OFFSET = 0x100000;
+
+  vga_ctrl_ptr = (uint32_t*)(lw_bridge_ptr + PIXEL_BUF_CTRL_BASE);
+  vga_ctrl = (vga_ctrl_t*)vga_ctrl_ptr;
+  vga_ctrl->BACK_BUF.w = 0x100000;
+
+  printk(KERN_INFO "FPGA_GPU: VGA controller front buffer is set to: %x \n", vga_ctrl->FRONT_BUF.w);
+  printk(KERN_INFO "FPGA_GPU: VGA controller back buffer is set to: %x \n", vga_ctrl->BACK_BUF.w);
 
   printk(KERN_INFO "FPGA_GPU: Initialization is complete!\n");
   return 0;
@@ -200,6 +221,15 @@ static long gpu_ioctl(struct file *filep, unsigned int cmd, unsigned long arg) {
         return_val = gpu_set_eventfd(arg);
         if (return_val != 0)
           printk(KERN_ERR "FPGA_GPU: Failed to set eventfd, ERRNO: %d", return_val);
+        break;
+      case VGA_IOCTL_SWAP:
+        return_val = vga_swap();
+        break;
+      case VGA_IOCTL_PRINT_STAT:
+        return_val = vga_stat();
+        break;
+      case VGA_IOCTL_CLR_BACK_BUF:
+        return_val = vga_clr_back_buf();
         break;
       default:
         printk(KERN_ERR "FPGA_GPU: Last IOCTL cmd is not valid");
@@ -299,6 +329,78 @@ irq_handler_t gpu_irq_handler(int irq, void *dev_id, struct pt_regs *regs){
   }
 
   return (irq_handler_t) IRQ_HANDLED;
+}
+
+
+static int vga_swap(){
+
+  uint32_t i;
+  vga_ctrl->FRONT_BUF.w = 0x1;
+
+  for (i = 0; i < VGA_CTRL_SYNC_TIMEOUT; i++){
+    if (vga_ctrl->STAT_CTRL.f.S == 0x0)
+      break;
+    else if (i == (VGA_CTRL_SYNC_TIMEOUT -1)) {
+      printk(KERN_WARNING "FPGA_GPU: Timed out while waiting for SWAP ack from VGA controller");
+      return -EIO; // todo: not the appropriate error here
+    }
+    msleep(1);
+  }
+
+  printk(KERN_INFO "FPGA_GPU: SWAP successful");
+  printk(KERN_INFO "FPGA_GPU: VGA controller front buffer is set to: %x \n", vga_ctrl->FRONT_BUF.w);
+  printk(KERN_INFO "FPGA_GPU: VGA controller back buffer is set to: %x \n", vga_ctrl->BACK_BUF.w);
+  return 0;
+
+}
+
+static int vga_stat(){
+
+  vga_ctrl__STAT_CTRL_t stat_ctrl_reg;
+
+  stat_ctrl_reg.w = vga_ctrl->STAT_CTRL.w;
+
+  printk(KERN_INFO "FPGA_GPU: Print VGA Controller Status Register");
+  printk(KERN_INFO "FPGA_GPU: VGA.CTRL_STAT.S :%x \n", stat_ctrl_reg.f.S);
+  printk(KERN_INFO "FPGA_GPU: VGA.CTRL_STAT.A :%x \n", stat_ctrl_reg.f.A);
+  printk(KERN_INFO "FPGA_GPU: VGA.CTRL_STAT.EN :%x \n", stat_ctrl_reg.f.EN);
+  return 0;
+
+}
+
+// todo: the gpu needs to be equiped with a HW clear function!
+static int vga_clr_back_buf() {
+
+  vga_ctrl__RESOLUTION_t resolution_reg;
+  uint32_t vga_x_len, vga_y_len;
+  uint32_t i, j;
+  uint32_t back_buf_addr;
+  uint32_t* back_buf_ptr;
+
+  resolution_reg.w = vga_ctrl->RESOLUTION.w;
+  vga_x_len = resolution_reg.f.X;
+  vga_y_len = resolution_reg.f.Y;
+  back_buf_addr = vga_ctrl->BACK_BUF.w;
+
+  printk(KERN_INFO "FPGA_GPU: Clear Back buffer");
+  printk(KERN_INFO "FPGA_GPU: VGA.RESOLUTION.X :%d\n", vga_x_len);
+  printk(KERN_INFO "FPGA_GPU: VGA.RESOLUTION.Y :%d\n", vga_y_len);
+  printk(KERN_INFO "FPGA_GPU: VGA.BACK_BUF :%x\n", back_buf_addr);
+
+  back_buf_ptr = (uint32_t*)ioremap_nocache(back_buf_addr, SDRAM_SPAN);
+
+  // todo: not sure why this is x2??
+  // it's fine tho because this is going to be deprecated by GPU HW Clear
+  for (i = 0; i < vga_x_len*2; i++) 
+    for (j = 0; j < vga_y_len*2; j++){
+      uint32_t pixel_offset = ((j & 0xFF) << 9) | (i & 0x1FF);
+      uint32_t* pixel_ptr = back_buf_ptr + pixel_offset;
+      *pixel_ptr = 0x00000000;  // clear pixel
+    }
+
+  iounmap(back_buf_ptr);
+  return 0;
+
 }
 
 MODULE_LICENSE("GPL");
