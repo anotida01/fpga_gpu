@@ -4,3 +4,6 @@
 [submodule "submodules/verilog-axi"]
 	path = submodules/verilog-axi
 	url = https://github.com/alexforencich/verilog-axi.git
+[submodule "submodules/async_fifo"]
+	path = submodules/async_fifo
+	url = https://github.com/dpretet/async_fifo
