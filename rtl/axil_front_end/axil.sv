@@ -179,6 +179,7 @@ module axil_gpu_front_end (
     .input_mem_offset_addr_i  (input_mem_offset_addr)
   );
 
+  // todo: this should connect to the internal bus now
   wbm2axilite #(
     .C_AXI_ADDR_WIDTH(32)
   ) mstr_wbm2axil_inst (
@@ -219,6 +220,8 @@ module axil_gpu_front_end (
     .i_axi_rdata    (mstr_axi_rdata_i),
     .i_axi_rresp    (mstr_axi_rresp_i)
   );
+
+  axil_interconnect_wrap_2x1 
 
 endmodule
 

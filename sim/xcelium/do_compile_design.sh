@@ -4,7 +4,7 @@
 set -e
 
 # compile design files within gpu_sys
-source ../../qsys/gpu_sys/simulation/xcelium/xcelium_setup.sh
+source ../../qsys/gpu_axil_sys/simulation/xcelium/xcelium_setup.sh
 
 # compile local HDL files
 xmvlog -messages -sv -f vertex_processor.f -linedebug -work work 

@@ -3,7 +3,7 @@
 *quartus*
 *modelsim*
 *questasim*
-*ip*
+/ip/*
 *.obj
 *.stl
 *.rar
@@ -21,6 +21,7 @@
 # & Qsys
 *.qsys_edit*
 qsys/gpu_sys/*
+qsys/gpu_axil_sys/*
 
 # Cadence
 *cds_libs*
@@ -38,9 +39,16 @@ sim/xcelium/xm*
 sim/xcelium/xrun*
 sim/xcelium/waves*
 sim/xcelium/xcelium.d/*
-
+.simvision
+xcelium.d
+waves.shm
+cov_work
+libraries
+sim/*
 
 # Questasim
 sim/questa/libraries/*
 *.wlf
 
+# docs
+docs/generated/*

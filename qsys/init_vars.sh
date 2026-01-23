@@ -1,0 +1,10 @@
+TOP_LEVEL_NAME="gpu_axil_sys"
+QSYS_SIMDIR="../../qsys/gpu_axil_sys/simulation"
+QUARTUS_INSTALL_DIR="/home/ano/.local/intelFPGA/22.1std/quartus/"
+SKIP_FILE_COPY=0
+SKIP_DEV_COM=0
+SKIP_COM=0
+SKIP_ELAB=1
+SKIP_SIM=1
+USER_DEFINED_ELAB_OPTIONS=""
+USER_DEFINED_SIM_OPTIONS="-input \"@run 100; exit\""
