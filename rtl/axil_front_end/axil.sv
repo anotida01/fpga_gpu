@@ -221,7 +221,5 @@ module axil_gpu_front_end (
     .i_axi_rresp    (mstr_axi_rresp_i)
   );
 
-  axil_interconnect_wrap_2x1 
-
 endmodule
 
