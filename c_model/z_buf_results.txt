@@ -1,0 +1,32 @@
+[ano@xps-9550 build]$ ./glut_keyhandling ../obj/cat.obj 
+Framebuffer is 923520 bytes
+Z-buffer is 309120 bytes
+Object Loaded from: ../obj/cat.obj
+        Triangles: 2082
+        Memory Usage 344.064 kB
+World to Camera Matrix
+[   0.686   0.728   0.000  -0.006   ]
+[  -0.324   0.305   0.896   0.052   ]
+[   0.652  -0.614   0.445 -11.256   ]
+[   0.000   0.000   0.000   1.000   ]
+
+Object After Projection: 
+Pixels Drawn: 28578
+OpenGL/GLUT exited. Cleaning Up Program
+[ano@xps-9550 build]$ ninja
+[2/2] Linking CXX executable glut_keyhandling
+[ano@xps-9550 build]$ ./glut_keyhandling ../obj/cat.obj 
+Framebuffer is 923520 bytes
+Z-buffer is 309120 bytes
+Object Loaded from: ../obj/cat.obj
+        Triangles: 2082
+        Memory Usage 344.064 kB
+World to Camera Matrix
+[   0.686   0.728   0.000  -0.006   ]
+[  -0.324   0.305   0.896   0.052   ]
+[   0.652  -0.614   0.445 -11.256   ]
+[   0.000   0.000   0.000   1.000   ]
+
+Object After Projection: 
+Pixels Drawn: 43567
+OpenGL/GLUT exited. Cleaning Up Program

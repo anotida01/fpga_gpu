@@ -52,3 +52,6 @@ sim/questa/libraries/*
 
 # docs
 docs/generated/*
+
+# c_model
+c_model/build/*
