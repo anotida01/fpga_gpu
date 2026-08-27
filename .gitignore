@@ -45,6 +45,14 @@ waves.shm
 cov_work
 libraries
 sim/*
+!sim/new_flow/
+sim/new_flow/runs/
+sim/new_flow/xcelium.d/
+sim/new_flow/regression_logs/
+sim/new_flow/regression_reports/
+sim/new_flow/*.log
+sim/new_flow/*.key
+sim/new_flow/*.history
 
 # Questasim
 sim/questa/libraries/*
@@ -55,3 +63,4 @@ docs/generated/*
 
 # c_model
 c_model/build/*
+c_model/cmake-build-debug/*

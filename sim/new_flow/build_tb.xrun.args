@@ -1,0 +1,6 @@
+-sv
+-linedebug
+-access +w+r+c
+-timescale 1ps/1ps
+-coverage all
+-work work
