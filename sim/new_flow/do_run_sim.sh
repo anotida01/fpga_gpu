@@ -26,6 +26,10 @@ if [ -z "${TESTS_DIR}" ]; then
   TESTS_DIR="${PROJ_DIR}/tests"
 fi
 
+export SIM_DIR
+export PROJ_DIR
+export TESTS_DIR
+
 DEFAULT_SIM_OPTS="-perfstat -covtest ${TEST_NAME} -covoverwrite"
 SIM_OPTS+=" ${DEFAULT_SIM_OPTS}"
 

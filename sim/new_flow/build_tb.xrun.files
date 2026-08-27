@@ -1,1 +1,1 @@
-../../tests/tb/tb.sv
+$TESTS_DIR/tb/tb.sv

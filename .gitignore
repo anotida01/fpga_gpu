@@ -46,6 +46,7 @@ cov_work
 libraries
 sim/*
 !sim/new_flow/
+sim/new_flow/runs
 sim/new_flow/runs/
 sim/new_flow/xcelium.d/
 sim/new_flow/regression_logs/

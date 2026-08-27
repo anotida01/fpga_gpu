@@ -13,9 +13,22 @@ if [ -z "${SIM_DIR}" ]; then
   SIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 
+if [ -z "${PROJ_DIR}" ]; then
+  PROJ_DIR="$(cd "${SIM_DIR}/../.." && pwd)"
+fi
+
+if [ -z "${TESTS_DIR}" ]; then
+  TESTS_DIR="${PROJ_DIR}/tests"
+fi
+
 if [ -z "${QUARTUS_ROOTDIR}" ]; then
   QUARTUS_ROOTDIR="/home/ano/.local/intelFPGA/22.1std/quartus/"
 fi
+
+export SIM_DIR
+export PROJ_DIR
+export TESTS_DIR
+export QUARTUS_ROOTDIR
 
 echo "Building DUT snapshot '${SNAPSHOT_NAME}'..."
 xrun -c \
