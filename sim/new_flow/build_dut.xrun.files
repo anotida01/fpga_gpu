@@ -53,3 +53,11 @@ $PROJ_DIR/submodules/wb2axip/rtl/axilrd2wbsp.v
 $PROJ_DIR/submodules/wb2axip/rtl/axilwr2wbsp.v
 $PROJ_DIR/submodules/wb2axip/rtl/wbarbiter.v
 $PROJ_DIR/submodules/wb2axip/rtl/axlite2wbsp.v
+
+# Quartus EDA Simulation Libraries
+$QUARTUS_ROOTDIR/eda/sim_lib/altera_primitives.v
+$QUARTUS_ROOTDIR/eda/sim_lib/220model.v
+$QUARTUS_ROOTDIR/eda/sim_lib/sgate.v
+$QUARTUS_ROOTDIR/eda/sim_lib/altera_mf.v
+-sv $QUARTUS_ROOTDIR/eda/sim_lib/altera_lnsim.sv
+

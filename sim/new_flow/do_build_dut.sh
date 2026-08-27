@@ -34,9 +34,4 @@ echo "Building DUT snapshot '${SNAPSHOT_NAME}'..."
 xrun -c \
   -f "${SIM_DIR}/build_dut.xrun.args" \
   -f "${SIM_DIR}/build_dut.xrun.files" \
-  "${QUARTUS_ROOTDIR}/eda/sim_lib/altera_primitives.v" \
-  "${QUARTUS_ROOTDIR}/eda/sim_lib/220model.v" \
-  "${QUARTUS_ROOTDIR}/eda/sim_lib/sgate.v" \
-  "${QUARTUS_ROOTDIR}/eda/sim_lib/altera_mf.v" \
-  -sv "${QUARTUS_ROOTDIR}/eda/sim_lib/altera_lnsim.sv" \
   -snapshot "${SNAPSHOT_NAME}"
