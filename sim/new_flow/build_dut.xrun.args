@@ -1,8 +1,8 @@
--sv
--linedebug
--access +w+r+c
--timescale 1ps/1ps
--coverage all
--namemap_mixgen
-+DISABLEGENCHK
--work work
+#-sv
+#-linedebug
+#-access +w+r+c
+#-timescale 1ps/1ps
+#-coverage all
+#-namemap_mixgen
+#+DISABLEGENCHK
+#-work work

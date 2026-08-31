@@ -1,0 +1,19 @@
+session fpga_gpu_regr {
+  top_dir: $ENV(REGRESSION_AREA);
+  hdl_files: "$ENV(SIM_DIR)/build_dut.xrun.args $ENV(SIM_DIR)/build_dut.xrun.files $ENV(SIM_DIR)/build_tb.xrun.args $ENV(SIM_DIR)/build_tb.xrun.files $ENV(TESTS_DIR)/testcases/testcases.f";
+  pre_session_script: "$ENV(SIM_DIR)/vmgr_do_build.sh";
+  output_mode: terminal;
+  // drm: parallel_local;
+  // max_runs_in_parallel: 100;
+}
+
+group tests {
+  run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
+  scan_script: "vm_scan.pl ius.flt shell.flt";
+
+  test tc_axilfe_basic_wr_rd {
+    sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axilfe_basic_wr_rd";
+    count: 1;
+    sv_seed: random;
+  }
+}

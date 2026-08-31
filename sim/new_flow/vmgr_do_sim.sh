@@ -66,7 +66,7 @@ if [ -z "$BRUN_SESSION_DIR" ]; then
   BRUN_SESSION_DIR="./vmgr_session"
 fi
 
-cmd="xrun -R -xmlibdirpath ${BRUN_SESSION_DIR} ${pre_run_option} ${f_option} ${cmd_option} ${tcl_option} ${BRUN_SIM_ARGS} ${post_run_option}"
+cmd="xrun -xmlibdirpath ${BRUN_SESSION_DIR} ${pre_run_option} ${f_option} ${cmd_option} ${tcl_option} ${BRUN_SIM_ARGS} ${post_run_option}"
 echo "Running: $cmd"
 eval $cmd
 
