@@ -6,6 +6,7 @@ class env_axfe extends uvm_env;
   axi4lite_agent mstr_agent;
   pipe_agent     dma_req_agent;
   pipe_agent     dma_rsp_agent;
+  clk_rst_ctrl   clk;
   
   axfe_scoreboard scb;
   axi4lite_mem_model mem;
@@ -29,6 +30,7 @@ class env_axfe extends uvm_env;
     dma_rsp_agent = pipe_agent::type_id::create("dma_rsp_agent", this);
     dma_rsp_agent.is_responder = 1; // Samples resp, drives ready
     
+    clk = clk_rst_ctrl::type_id::create("clk", this);
     scb = axfe_scoreboard::type_id::create("scb", this);
     mem = axi4lite_mem_model::type_id::create("mem", this);
   endfunction

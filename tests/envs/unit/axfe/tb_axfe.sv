@@ -3,26 +3,16 @@ module tb_axfe;
   import axi4lite_pkg::*;
   import pipe_pkg::*;
   import gpu_hs_pkg::*;
+  import clk_rst_pkg::*;
   import axfe_env_pkg::*;
   `include "uvm_macros.svh"
 
-  logic clk;
-  logic reset;
+  // Clock & Reset Interface (single source of truth)
+  clk_rst_if clk_rst_i();
 
-  // Clock generation
-  initial begin
-    clk = 0;
-    forever #5ns clk = ~clk;
-  end
-
-  // Reset generation
-  initial begin
-    reset = 1;
-    repeat(10) @(posedge clk);
-    reset = 0;
-  end
-
-  wire rst_n = ~reset;
+  wire clk   = clk_rst_i.clk;
+  wire rst_n = clk_rst_i.rst_n;
+  wire reset = ~rst_n;
 
   // Interfaces
   axi4lite_if ctrl_if(clk, rst_n);
@@ -100,6 +90,7 @@ module tb_axfe;
     uvm_config_db#(virtual pipe_if)::set(null, "*.dma_req_agent*", "vif", dma_req_if);
     uvm_config_db#(virtual pipe_if)::set(null, "*.dma_rsp_agent*", "vif", dma_rsp_if);
     uvm_config_db#(virtual gpu_hs_if)::set(null, "uvm_test_top", "vif", gpu_hs);
+    uvm_config_db#(virtual clk_rst_if)::set(null, "*", "vif", clk_rst_i);
     run_test();
   end
 

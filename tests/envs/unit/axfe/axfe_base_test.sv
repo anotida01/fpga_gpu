@@ -45,6 +45,29 @@ class axfe_base_test extends uvm_test;
     if (idx == 3) env.scb.dma_input_offset = val;
   endtask
 
+  // Reset the scoreboard model to 0 post-reset
+  task reset_scb_model();
+    for (int i = 0; i < 5; i++) env.scb.regs[i] = 32'h0;
+    env.scb.dma_input_offset = 32'h0;
+  endtask
+
+  task do_reset(int hold_cycles = 2);
+    env.clk.apply_reset(hold_cycles);
+    reset_scb_model();
+  endtask
+
+  task stop_clk();
+    env.clk.stop_clk();
+  endtask
+
+  task resume_clk();
+    env.clk.resume_clk();
+  endtask
+
+  function void set_clk_period_ns(real period_ns);
+    env.clk.set_clk_period_ns(period_ns);
+  endfunction
+
   task write_reg(logic [31:0] addr, logic [31:0] data);
     axfe_axil_write_seq seq = axfe_axil_write_seq::type_id::create("seq");
     seq.addr = addr;
