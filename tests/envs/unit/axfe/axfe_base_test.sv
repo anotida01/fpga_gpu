@@ -49,7 +49,17 @@ class axfe_base_test extends uvm_test;
   task reset_scb_model();
     for (int i = 0; i < 5; i++) env.scb.regs[i] = 32'h0;
     env.scb.dma_input_offset = 32'h0;
+    // intr_gen is reset by the DUT reset, so the live STATUS bit clears too.
+    env.scb.status_gpu_done = 32'h0;
   endtask
+
+  // Reflect the DUT's live STATUS bit0 (gpu_done interrupt) into the scoreboard
+  // model. Called by tests after a start->done cycle sets the interrupt, or
+  // after INT_CLR / reset clears it — mirroring intr_gen.irq_o.
+  function void set_status_gpu_done(int v);
+    if (v) env.scb.status_gpu_done = 32'h1;
+    else   env.scb.status_gpu_done = 32'h0;
+  endfunction
 
   task do_reset(int hold_cycles = 2);
     env.clk.apply_reset(hold_cycles);

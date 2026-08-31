@@ -15,6 +15,12 @@ class axfe_scoreboard extends uvm_scoreboard;
   // Register Model State
   logic [31:0] regs[5];
   logic [31:0] dma_input_offset;
+  // Reg1 (STATUS) bit0 is a LIVE read-only mirror of the gpu_done interrupt
+  // (intr_gen.irq_o), not a stored register. Writes to Reg1 are dropped by the
+  // DUT (axil_control.sv:395-396). This field is what the DUT presents on
+  // readback and is updated by the test via set_status_gpu_done() to mirror
+  // the interrupt state (set by a start->done cycle, cleared by INT_CLR/reset).
+  logic [31:0] status_gpu_done = 32'h0;
 
   int dma_req_count = 0;
   int dma_rsp_count = 0;
@@ -39,18 +45,24 @@ class axfe_scoreboard extends uvm_scoreboard;
     if (item.op == WRITE) begin
       int idx = item.addr >> 2;
       ctrl_write_count++;
+      if (idx == 1) begin
+        // Reg1 (STATUS) is read-only; CPU writes are dropped by the DUT.
+        `uvm_info("SCB_CTRL", $sformatf("Write to Reg[1] (STATUS, read-only) dropped; status_gpu_done=%b", status_gpu_done), UVM_MEDIUM)
+        return;
+      end
       if (idx < 5) begin
         logic [31:0] mask = 32'hFFFFFFFF;
-        if (idx == 1) mask = 32'h1;
         regs[idx] = item.data & mask;
         if (idx == 3) dma_input_offset = regs[3];
         `uvm_info("SCB_CTRL", $sformatf("Write Reg[%0d] = %h (mask %h)", idx, regs[idx], mask), UVM_MEDIUM)
         // Auto-clear Reg2
-        if (idx == 2) regs[idx] = 0; 
+        if (idx == 2) regs[idx] = 0;
       end
     end else begin
       int idx = item.addr >> 2;
-      logic [31:0] expected = (idx < 5) ? regs[idx] : 32'h0;
+      logic [31:0] expected;
+      if (idx == 1) expected = status_gpu_done[31:0]; // live interrupt status
+      else         expected = (idx < 5) ? regs[idx] : 32'h0;
       ctrl_check_count++;
       if (item.data !== expected) begin
         `uvm_error("SCB_CTRL", $sformatf("Mismatch at Reg[%0d]: Exp %h, Got %h", idx, expected, item.data))
