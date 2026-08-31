@@ -66,10 +66,7 @@ elif [ -d "./xcelium.d" ]; then
   cp -r "$(realpath ./xcelium.d)" "${WORK_DIR}/."
 fi
 
-TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}/${TEST_NAME}.sv"
-if [ ! -f "${TEST_FILE}" ]; then
-  TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}.sv"
-fi
+TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}.sv"
 
 if [ "${TEST_NAME}" = "tc_axilfe_basic_wr_rd" ]; then
   TOP_MODULE="tb_axfe"
