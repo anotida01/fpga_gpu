@@ -1,1 +1,7 @@
-$TESTS_DIR/tb/tb.sv
+$TESTS_DIR/vip/axi4lite/axi4lite_if.sv
+$TESTS_DIR/vip/pipe/pipe_if.sv
+$TESTS_DIR/vip/axi4lite/axi4lite_pkg.sv
+$TESTS_DIR/vip/pipe/pipe_pkg.sv
+$TESTS_DIR/envs/unit/axfe/axfe_env_pkg.sv
+$TESTS_DIR/envs/unit/axfe/axfe_seq_pkg.sv
+$TESTS_DIR/envs/unit/axfe/tb_axfe.sv

@@ -56,6 +56,9 @@ set -e
 # Link file manifests and xcelium build dir if available
 ln -sf "$(realpath "${SIM_DIR}/build_tb.xrun.args")" "${WORK_DIR}/"
 ln -sf "$(realpath "${SIM_DIR}/build_tb.xrun.files")" "${WORK_DIR}/"
+if [ -d "${TESTS_DIR}/testcases/memh" ]; then
+  ln -sf "$(realpath "${TESTS_DIR}/testcases/memh")" "${WORK_DIR}/memh"
+fi
 
 if [ -d "${SIM_DIR}/xcelium.d" ]; then
   cp -r "$(realpath "${SIM_DIR}/xcelium.d")" "${WORK_DIR}/."
@@ -68,14 +71,20 @@ if [ ! -f "${TEST_FILE}" ]; then
   TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}.sv"
 fi
 
+if [ "${TEST_NAME}" = "tc_axilfe_basic_wr_rd" ]; then
+  TOP_MODULE="tb_axfe"
+else
+  TOP_MODULE="tb_axfe" # Default to axfe for now
+fi
+
 set +e
 (
   cd "${WORK_DIR}"
   echo "Executing simulation in ${WORK_DIR}..."
   if [ -f "${TEST_FILE}" ]; then
-    xrun -f build_tb.xrun.args -f build_tb.xrun.files "${TEST_FILE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
+    xrun -f build_tb.xrun.args -f build_tb.xrun.files "${TEST_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
   else
-    xrun -f build_tb.xrun.args -f build_tb.xrun.files -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
+    xrun -f build_tb.xrun.args -f build_tb.xrun.files -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
   fi
 )
 EXIT_CODE=$?
