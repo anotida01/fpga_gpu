@@ -22,8 +22,8 @@ import axfe_seq_pkg::*;
 //      write/read round-trip of the memory offset field.
 // Behavior is verified by the axfe scoreboard comparing readback data against
 // the expected register-model values.
-class tc_axilfe_regmap_corner extends axfe_base_test;
-  `uvm_component_utils(tc_axilfe_regmap_corner)
+class tc_axfe_regmap_corner extends axfe_base_test;
+  `uvm_component_utils(tc_axfe_regmap_corner)
 
   function new(string name, uvm_component parent);
     super.new(name, parent);

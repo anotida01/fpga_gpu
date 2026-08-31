@@ -19,8 +19,8 @@ import axfe_seq_pkg::*;
 //   4. Read Reg0 and verify the start bit has been auto-cleared (readback
 //      value 0), confirming the self-clearing behavior required by the
 //      register specification.
-class tc_axilfe_start_done extends axfe_base_test;
-  `uvm_component_utils(tc_axilfe_start_done)
+class tc_axfe_start_done extends axfe_base_test;
+  `uvm_component_utils(tc_axfe_start_done)
 
   function new(string name, uvm_component parent);
     super.new(name, parent);

@@ -15,8 +15,8 @@ import axfe_seq_pkg::*;
 //   3. Writes 5 distinct patterns to control register offsets 0x0-0x10 and
 //      reads them all back; the scoreboard verifies each readback equals the
 //      last value written (register file R/W consistency).
-class tc_axilfe_basic_wr_rd extends axfe_base_test;
-  `uvm_component_utils(tc_axilfe_basic_wr_rd)
+class tc_axfe_basic_wr_rd extends axfe_base_test;
+  `uvm_component_utils(tc_axfe_basic_wr_rd)
 
   function new(string name, uvm_component parent);
     super.new(name, parent);

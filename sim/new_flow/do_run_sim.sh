@@ -68,7 +68,7 @@ fi
 
 TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}.sv"
 
-if [ "${TEST_NAME}" = "tc_axilfe_basic_wr_rd" ]; then
+if [ "${TEST_NAME}" = "tc_axfe_basic_wr_rd" ]; then
   TOP_MODULE="tb_axfe"
 else
   TOP_MODULE="tb_axfe" # Default to axfe for now
