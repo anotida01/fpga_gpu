@@ -6,17 +6,11 @@ import axfe_env_pkg::*;
 import axfe_seq_pkg::*;
 `include "uvm_macros.svh"
 
-class tc_axilfe_basic_wr_rd extends uvm_test;
+class tc_axilfe_basic_wr_rd extends axfe_base_test;
   `uvm_component_utils(tc_axilfe_basic_wr_rd)
-
-  env_axfe env;
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
-  endfunction
-
-  function void build_phase(uvm_phase phase);
-    env = env_axfe::type_id::create("env", this);
   endfunction
 
   task run_phase(uvm_phase phase);
@@ -34,9 +28,7 @@ class tc_axilfe_basic_wr_rd extends uvm_test;
 
     // 2. DMA Requests (4 words)
     for (int i=0; i<4; i++) begin
-      axfe_dma_req_seq seq = axfe_dma_req_seq::type_id::create("seq");
-      seq.addr = i;
-      seq.start(env.dma_req_agent.sqr);
+      send_dma_req(i);
     end
 
     // 3. CTRL Writes
@@ -55,19 +47,6 @@ class tc_axilfe_basic_wr_rd extends uvm_test;
 
     #100ns;
     phase.drop_objection(this);
-  endtask
-
-  task write_reg(logic [31:0] addr, logic [31:0] data);
-    axfe_axil_write_seq seq = axfe_axil_write_seq::type_id::create("seq");
-    seq.addr = addr;
-    seq.data = data;
-    seq.start(env.ctrl_agent.sqr);
-  endtask
-
-  task read_reg(logic [31:0] addr);
-    axfe_axil_read_seq seq = axfe_axil_read_seq::type_id::create("seq");
-    seq.addr = addr;
-    seq.start(env.ctrl_agent.sqr);
   endtask
 
 endclass

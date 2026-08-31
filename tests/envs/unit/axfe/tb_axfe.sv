@@ -2,6 +2,7 @@ module tb_axfe;
   import uvm_pkg::*;
   import axi4lite_pkg::*;
   import pipe_pkg::*;
+  import gpu_hs_pkg::*;
   import axfe_env_pkg::*;
   `include "uvm_macros.svh"
 
@@ -28,6 +29,7 @@ module tb_axfe;
   axi4lite_if mstr_if(clk, rst_n);
   pipe_if     dma_req_if(clk, rst_n);
   pipe_if     dma_rsp_if(clk, rst_n);
+  gpu_hs_if   gpu_hs(clk, rst_n);
 
   // DUT
   axil_gpu_front_end dut (
@@ -85,10 +87,10 @@ module tb_axfe;
     .gpu_dma_ready         (dma_rsp_if.ready),
     
     // Ties / Unconnected
-    .gpu_ctrl_done         (1'b0),
-    .gpu_start             (),
-    .output_mem_offset_addr_o (),
-    .irq_gpu               ()
+    .gpu_ctrl_done         (gpu_hs.done),
+    .gpu_start             (gpu_hs.start),
+    .output_mem_offset_addr_o (gpu_hs.out_mem_off),
+    .irq_gpu               (gpu_hs.irq)
   );
 
   // UVM Config DB
@@ -97,6 +99,7 @@ module tb_axfe;
     uvm_config_db#(virtual axi4lite_if)::set(null, "*.mstr_agent*", "vif", mstr_if);
     uvm_config_db#(virtual pipe_if)::set(null, "*.dma_req_agent*", "vif", dma_req_if);
     uvm_config_db#(virtual pipe_if)::set(null, "*.dma_rsp_agent*", "vif", dma_rsp_if);
+    uvm_config_db#(virtual gpu_hs_if)::set(null, "*.gpu_hs_agent*", "vif", gpu_hs);
     run_test();
   end
 

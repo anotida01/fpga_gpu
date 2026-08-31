@@ -19,6 +19,9 @@ class axfe_scoreboard extends uvm_scoreboard;
   int dma_req_count = 0;
   int dma_rsp_count = 0;
   int ctrl_check_count = 0;
+  int ctrl_write_count = 0;
+  int expected_ctrl_rd = -1; // -1 means default/unspecified, otherwise enforce exact count
+  int expected_dma_rsp = -1; // -1 means default/unspecified, otherwise enforce exact count
   logic [31:0] exp_dma_addr_q[$];
 
   `uvm_component_utils(axfe_scoreboard)
@@ -35,6 +38,7 @@ class axfe_scoreboard extends uvm_scoreboard;
   virtual function void write_ctrl(axi4lite_seq_item item);
     if (item.op == WRITE) begin
       int idx = item.addr >> 2;
+      ctrl_write_count++;
       if (idx < 5) begin
         logic [31:0] mask = 32'hFFFFFFFF;
         if (idx == 1) mask = 32'h1;
@@ -82,12 +86,26 @@ class axfe_scoreboard extends uvm_scoreboard;
   endfunction
 
   function void check_phase(uvm_phase phase);
-    if (ctrl_check_count != 5) begin
-      `uvm_error("SCB_CHECK", $sformatf("Expected 5 CTRL read checks, got %0d", ctrl_check_count))
+    if (expected_ctrl_rd >= 0) begin
+      if (ctrl_check_count != expected_ctrl_rd) begin
+        `uvm_error("SCB_CHECK", $sformatf("Expected %0d CTRL read checks, got %0d", expected_ctrl_rd, ctrl_check_count))
+      end
+    end else begin
+      if (ctrl_check_count != 5) begin
+        `uvm_error("SCB_CHECK", $sformatf("Expected 5 CTRL read checks, got %0d", ctrl_check_count))
+      end
     end
-    if (dma_rsp_count != 4) begin
-      `uvm_error("SCB_CHECK", $sformatf("Expected 4 DMA responses, got %0d", dma_rsp_count))
+
+    if (expected_dma_rsp >= 0) begin
+      if (dma_rsp_count != expected_dma_rsp) begin
+        `uvm_error("SCB_CHECK", $sformatf("Expected %0d DMA responses, got %0d", expected_dma_rsp, dma_rsp_count))
+      end
+    end else begin
+      if (dma_rsp_count != 4) begin
+        `uvm_error("SCB_CHECK", $sformatf("Expected 4 DMA responses, got %0d", dma_rsp_count))
+      end
     end
+
     if (exp_dma_addr_q.size() != 0) begin
       `uvm_error("SCB_CHECK", $sformatf("Unfinished DMA requests in queue: %0d", exp_dma_addr_q.size()))
     end
