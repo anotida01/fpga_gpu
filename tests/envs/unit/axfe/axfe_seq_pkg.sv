@@ -2,6 +2,7 @@ package axfe_seq_pkg;
   import uvm_pkg::*;
   import axi4lite_pkg::*;
   import pipe_pkg::*;
+  import gpu_hs_pkg::*;
   import axfe_env_pkg::*;
   `include "uvm_macros.svh"
 

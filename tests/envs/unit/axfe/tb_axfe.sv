@@ -99,7 +99,7 @@ module tb_axfe;
     uvm_config_db#(virtual axi4lite_if)::set(null, "*.mstr_agent*", "vif", mstr_if);
     uvm_config_db#(virtual pipe_if)::set(null, "*.dma_req_agent*", "vif", dma_req_if);
     uvm_config_db#(virtual pipe_if)::set(null, "*.dma_rsp_agent*", "vif", dma_rsp_if);
-    uvm_config_db#(virtual gpu_hs_if)::set(null, "*.gpu_hs_agent*", "vif", gpu_hs);
+    uvm_config_db#(virtual gpu_hs_if)::set(null, "uvm_test_top", "vif", gpu_hs);
     run_test();
   end
 

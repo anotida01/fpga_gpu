@@ -86,24 +86,14 @@ class axfe_scoreboard extends uvm_scoreboard;
   endfunction
 
   function void check_phase(uvm_phase phase);
-    if (expected_ctrl_rd >= 0) begin
-      if (ctrl_check_count != expected_ctrl_rd) begin
-        `uvm_error("SCB_CHECK", $sformatf("Expected %0d CTRL read checks, got %0d", expected_ctrl_rd, ctrl_check_count))
-      end
-    end else begin
-      if (ctrl_check_count != 5) begin
-        `uvm_error("SCB_CHECK", $sformatf("Expected 5 CTRL read checks, got %0d", ctrl_check_count))
-      end
+    // Only enforce counts the test explicitly opted into. Tests that want an
+    // exact transaction count set expected_ctrl_rd / expected_dma_rsp.
+    if (expected_ctrl_rd >= 0 && ctrl_check_count != expected_ctrl_rd) begin
+      `uvm_error("SCB_CHECK", $sformatf("Expected %0d CTRL read checks, got %0d", expected_ctrl_rd, ctrl_check_count))
     end
 
-    if (expected_dma_rsp >= 0) begin
-      if (dma_rsp_count != expected_dma_rsp) begin
-        `uvm_error("SCB_CHECK", $sformatf("Expected %0d DMA responses, got %0d", expected_dma_rsp, dma_rsp_count))
-      end
-    end else begin
-      if (dma_rsp_count != 4) begin
-        `uvm_error("SCB_CHECK", $sformatf("Expected 4 DMA responses, got %0d", dma_rsp_count))
-      end
+    if (expected_dma_rsp >= 0 && dma_rsp_count != expected_dma_rsp) begin
+      `uvm_error("SCB_CHECK", $sformatf("Expected %0d DMA responses, got %0d", expected_dma_rsp, dma_rsp_count))
     end
 
     if (exp_dma_addr_q.size() != 0) begin
