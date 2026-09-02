@@ -9,6 +9,7 @@ $PROJ_DIR/tests/testcases/tc_axfe_dma_timeout.sv
 $PROJ_DIR/tests/testcases/tc_axfe_reset_behavior.sv
 $PROJ_DIR/tests/testcases/tc_axfe_intr_status_lifecycle.sv
 $PROJ_DIR/tests/testcases/tc_axfe_bus_timing.sv
+$PROJ_DIR/tests/testcases/tc_axfe_resp_status.sv
 #$PROJ_DIR/tests/testcases/tc_axilfe_error/tc_axilfe_error.sv
 #$PROJ_DIR/tests/testcases/tc_axil_sys_access/tc_axil_sys_access.sv
 #$PROJ_DIR/tests/testcases/tc_axil_slave/tc_axil_slave.sv

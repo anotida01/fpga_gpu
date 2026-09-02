@@ -27,6 +27,12 @@ class axfe_scoreboard extends uvm_scoreboard;
   localparam int NUM_REGS = 5;
   reg_model_t rm[NUM_REGS];
 
+  // AXI4-Lite response codes (AMBA AXI, 2'b00 is OKAY). A *valid* access to a
+  // defined register must complete with OKAY; this is the gap item 1 closes.
+  localparam logic [1:0] RESP_OKAY = 2'b00; // OKAY
+  localparam logic [1:0] RESP_SLV  = 2'b01; // SLVERR (reference)
+  localparam logic [1:0] RESP_DEC  = 2'b10; // DECERR (reference)
+
   // Derived: Reg3 is IN_MEM_OFF (axil_control.sv:356); the DMA base offset is
   // Reg3's stored value. Exposed as a getter so callers don't reach into rm[3].
   function logic [31:0] get_dma_input_offset();
@@ -40,6 +46,16 @@ class axfe_scoreboard extends uvm_scoreboard;
   int expected_ctrl_rd = -1; // -1 means default/unspecified, otherwise enforce exact count
   int expected_dma_rsp = -1; // -1 means default/unspecified, otherwise enforce exact count
   logic [31:0] exp_dma_addr_q[$];
+
+  // Out-of-range (decode-miss) response contract, configurable so the scoreboard
+  // captures the DUT's actual behavior by default rather than baking in a
+  // protocol-legal-but-undecided choice. AXI4-Lite allows EITHER OKAY+read0 or
+  // DECERR on a decode miss; which is *intended* is an open design decision
+  // (WORK_axfe_design_decisions, W6). Until then we only report the observed
+  // resp (en_oob_resp==0). After the decision, a test may set en_oob_resp=1
+  // and oob_exp_resp=<decided code> to enforce it.
+  bit          en_oob_resp  = 1'b0;  // 0 = report only (default), 1 = enforce exact resp
+  logic [1:0]  oob_exp_resp = 2'b00; // expected OOR resp when en_oob_resp is set
 
   `uvm_component_utils(axfe_scoreboard)
 
@@ -93,7 +109,19 @@ class axfe_scoreboard extends uvm_scoreboard;
       ctrl_write_count++;
       if (idx >= NUM_REGS) begin
         `uvm_info("SCB_CTRL", $sformatf("Write to out-of-range offset 0x%0h dropped", item.addr), UVM_MEDIUM)
+        // Capture the observed OOR response contract (item 2): always report it,
+        // and enforce it only if the test opted in after the W6 decision.
+        `uvm_info("SCB_CTRL", $sformatf("OOR Write 0x%0h observed resp=%b (en_oob_resp=%b, exp_when_en=%b)", item.addr, item.resp, en_oob_resp, oob_exp_resp), UVM_LOW)
+        if (en_oob_resp && (item.resp !== oob_exp_resp)) begin
+          `uvm_error("SCB_CTRL", $sformatf("OOR Write 0x%0h resp=%b != expected OOR resp=%b", item.addr, item.resp, oob_exp_resp))
+        end
         return;
+      end
+      // In-range write to a defined register MUST complete with OKAY per the
+      // AXI4-Lite protocol. Check this before the is_live early-return so the
+      // live Reg1 (STATUS) write path is covered too.
+      if (item.resp !== RESP_OKAY) begin
+        `uvm_error("SCB_CTRL", $sformatf("Write to Reg[%0d] at 0x%0h returned resp=%b, expected OKAY=%b", idx, item.addr, item.resp, RESP_OKAY))
       end
       if (rm[idx].is_live) begin
         // Live register (Reg1 STATUS): CPU writes are dropped by the DUT.
@@ -113,6 +141,22 @@ class axfe_scoreboard extends uvm_scoreboard;
     end else begin
       logic [31:0] expected = expected_readback(idx);
       ctrl_check_count++;
+      // In-range read (idx < NUM_REGS) to a defined register MUST complete with
+      // OKAY per the AXI4-Lite protocol. OOR reads (idx >= NUM_REGS) are
+      // deliberately left here for item 2's configurable OOR contract and are
+      // checked for response separately.
+      if (idx < NUM_REGS && item.resp !== RESP_OKAY) begin
+        `uvm_error("SCB_CTRL", $sformatf("Read Reg[%0d] at 0x%0h returned resp=%b, expected OKAY=%b", idx, item.addr, item.resp, RESP_OKAY))
+      end
+      // OOR read (item 2): keep the data==0 expectation (expected_readback
+      // returns 0), always report the observed resp, and enforce only if the
+      // test opted in after the W6 decision.
+      if (idx >= NUM_REGS) begin
+        `uvm_info("SCB_CTRL", $sformatf("OOR Read  0x%0h observed resp=%b (en_oob_resp=%b, exp_when_en=%b)", item.addr, item.resp, en_oob_resp, oob_exp_resp), UVM_LOW)
+        if (en_oob_resp && (item.resp !== oob_exp_resp)) begin
+          `uvm_error("SCB_CTRL", $sformatf("OOR Read 0x%0h resp=%b != expected OOR resp=%b", item.addr, item.resp, oob_exp_resp))
+        end
+      end
       if (item.data !== expected) begin
         `uvm_error("SCB_CTRL", $sformatf("Mismatch at Reg[%0d]: Exp %h, Got %h", idx, expected, item.data))
       end else begin

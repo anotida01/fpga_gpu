@@ -66,4 +66,9 @@ group tests {
     count: 1;
     sv_seed: random;
   }
+  test tc_axfe_resp_status {
+    sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axfe_resp_status";
+    count: 1;
+    sv_seed: random;
+  }
 }
