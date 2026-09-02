@@ -119,18 +119,25 @@ package axi4lite_pkg;
       drive_write_resp(item);
     endtask
 
+    // The DUT's write bridge (axilwr2wbsp) latches AW and W INDEPENDENTLY and,
+    // when it has one channel but not the other, drops the latched channel's
+    // ready to hold it (address-without-data -> drop awready; data-without-
+    // address -> drop wready) until the other arrives. We therefore must NOT
+    // wait on the first channel's ready (it is intentionally deasserted while
+    // pending); instead we present the first channel, hold it across the gap
+    // (the staggered assertion latency the test wants), present the second,
+    // let one clock complete the write, then deassert both and wait the B resp.
     task drive_write_aw_first(axi4lite_seq_item item);
       @(posedge vif.clk);
       vif.awaddr  <= item.addr;
       vif.awprot  <= item.prot;
       vif.awvalid <= 1'b1;
-      do @(posedge vif.clk); while (!vif.awready);
-      vif.awvalid <= 1'b0;
       for (int i = 0; i < item.aw_w_gap; i++) @(posedge vif.clk);
       vif.wdata   <= item.data;
       vif.wstrb   <= item.strb;
       vif.wvalid  <= 1'b1;
-      do @(posedge vif.clk); while (!vif.wready);
+      @(posedge vif.clk);
+      vif.awvalid <= 1'b0;
       vif.wvalid  <= 1'b0;
       drive_write_resp(item);
     endtask
@@ -140,14 +147,13 @@ package axi4lite_pkg;
       vif.wdata   <= item.data;
       vif.wstrb   <= item.strb;
       vif.wvalid  <= 1'b1;
-      do @(posedge vif.clk); while (!vif.wready);
-      vif.wvalid  <= 1'b0;
       for (int i = 0; i < item.aw_w_gap; i++) @(posedge vif.clk);
       vif.awaddr  <= item.addr;
       vif.awprot  <= item.prot;
       vif.awvalid <= 1'b1;
-      do @(posedge vif.clk); while (!vif.awready);
+      @(posedge vif.clk);
       vif.awvalid <= 1'b0;
+      vif.wvalid  <= 1'b0;
       drive_write_resp(item);
     endtask
 
