@@ -18,32 +18,34 @@ import axfe_seq_pkg::*;
 //     slave (not abort); data arrives once the slave responds. The scoreboard
 //     checks the response data. EXPECTED GREEN.
 //
-//   Part B - large-latency slave. The DMA slave is made effectively unresponsive
-//     (stall of 10000 cycles), which the current AXI slave VIP models as "respond
-//     after N cycles" (never "never respond"). General HW practice: a read
-//     master must either (a) wait for the slave (bounded or unbounded, per
-//     design intent), or (b) have a timeout / abort / error path if the slave
-//     does not respond within a bounded window. The current DUT's WAIT_ACK
-//     state waits on wb_ack_i with no timeout/abort path, so the DUT simply
-//     waits for the slave to finish (correct if "unbounded wait" is the design
-//     intent).
+//   Part B - large-latency slave (DEFECT CHECK, expected-RED). The DMA slave
+//     is stalled for 10000 cycles - far beyond any bounded service window a
+//     read master would reasonably wait. A read master with a sound design
+//     MUST time out / abort an outstanding DMA read rather than wait
+//     indefinitely (an unbounded WAIT_ACK on wb_ack_i can dead-lock the GPU
+//     pipeline if the slave ever fails to respond). The current DUT
+//     (axil_dma_master, WAIT_ACK in axil_dma.sv:119-128) has NO timeout
+//     counter or abort path - it waits on wb_ack_i until the slave answers.
 //
-//     This part is an OPEN DESIGN QUESTION, not a confirmed defect: the
-//     register map / design doc do not specify whether the DUT must
-//     time out a DMA read or wait indefinitely for the slave. Part B
-//     therefore documents the behavior (the DUT waits) rather than asserting
-//     an error. If future intent is "bounded wait + abort," this test will
-//     need a slave model with a true "never responds" mode and the DUT will
-//     need a timeout.
+//     Per user decision 2026-09-02 this is a DUT DEFICIENCY, not an open
+//     design question. Part B therefore ASSERTS a bounded response window:
+//     it issues one DMA req against a stalled slave, waits a bounded number
+//     of cycles for the response, and raises a UVM_ERROR if the DUT has not
+//     completed the read (i.e. it is hung / waiting indefinitely). The test
+//     is expected-RED until a timeout / abort / error mechanism is added to
+//     the DUT. A GREEN Part B means the DUT gained a working timeout that
+//     completes the read within the window - treat that as the deficiency
+//     being resolved.
 //
 //   Key test-engineering constraint: `send_dma_req()` internally blocks on the
 //   DUT's `dma_ready` (=ready_o) signal, which stays asserted only in
 //   IDLE and de-asserts throughout READ_REQ/WAIT_ACK/DONE. If the DUT is stuck
-//   in WAIT_ACK (no timeout), `send_dma_req` would block the test too. So the
-//   test uses `fork...join_any` with a bounded wait for the DUT, detects the
-//   hang via the frozen `env.scb.dma_rsp_count`, and `disable`s the stuck
-//   request process to let the sim terminate cleanly. A GREEN Part B would
-//   mean the DUT gained a working timeout - treat as defect resolution.
+//   in WAIT_ACK (no timeout), `send_dma_req` returns only at request-accept
+//   (IDLE->READ_REQ) and never waits on the response, so the test drains on
+//   `env.scb.dma_rsp_count` (bounded) to detect the hang. The bounded drain
+//   is short (see B in run_phase) so a hung DUT times out the assertion
+//   quickly rather than hanging the sim; a later DUT timeout mechanism that
+//   completes the read within the window drains successfully and goes green.
 
 class tc_axfe_dma_timeout extends axfe_base_test;
   `uvm_component_utils(tc_axfe_dma_timeout)
@@ -85,42 +87,37 @@ class tc_axfe_dma_timeout extends axfe_base_test;
       `uvm_info("3C", "OK: Part A - DUT waited for the slow slave; response consumed, data scoreboard-checked", UVM_LOW)
 
     // ----------------------------------------------------------------
-    // Part B - large-latency slave (10k cycles). Documents the DUT's
-    // read-timeout policy (currently: wait indefinitely, no abort).
+    // Part B - DUT DEFICIENCY CHECK (expected-RED). Slave is stalled far
+    // beyond any bounded service window (10000 cycles). A read master with a
+    // sound design must time out / abort an outstanding DMA read rather than
+    // wait indefinitely. The current DUT (axil_dma_master WAIT_ACK) has no
+    // timeout / abort path and waits on wb_ack_i until the slave answers, so
+    // it will NOT complete within the bounded window below -> UVM_ERROR.
     //
-    // This is a DOCUMENTATION TEST, not a defect assertion. The DUT's
-    // WAIT_ACK state (axil_dma.sv) has no timeout counter and waits on
-    // wb_ack_i until the slave responds. General HW practice leaves this
-    // as an open design question: either (a) unbounded wait is acceptable
-    // if the slave is guaranteed to respond, or (b) a bounded wait + abort
-    // / error must be added when the slave is silent for N cycles.
-    //
-    // The register map and design doc do not specify which. This test
-    // drives a 10k-cycle slave stall, confirms the DUT completes the read
-    // once the slave finally answers (scoreboard-checked data), and records
-    // the "no timeout / wait-for-slave" behavior as an open design intent.
-    // If future intent is (b), this test becomes the expected-RED check.
-    //
-    // Note: the current AXI slave VIP cannot model "never responds" (it
-    // always answers after N cycles), so the truly-unresponsive case
-    // remains untestable until the VIP gains a no-response mode.
+    // This is the expected-RED defect check: it stays RED until the DUT
+    // gains a timeout / abort / error mechanism that completes the read
+    // within the window (a GREEN here signals the deficiency is resolved).
+    // The scoreboard's check_phase independently reports the still-pending
+    // DMA req as "Unfinished DMA requests in queue" (axfe_scoreboard.sv:160).
     // ----------------------------------------------------------------
     env.mem.write(32'h4, 32'h9999AAAA);
     env.mem.rd_stall_cycles = 10000;
     send_dma_req(32'h1);
 
-    // Drain (bounded): wait for the DUT to accept the response once the
-    // slave has finally answered. The slave's 10k-cycle stall ends within
-    // the 100k-cycle budget below; if it never completes, this times out.
+    // Bounded drain: the DUT must service the read within a bounded window
+    // by either timing out / aborting or (with a future timeout mechanism)
+    // completing the response. 500 cycles is comfortably above Part A's
+    // 20-cycle stall and far below the 10k slave stall, so a hung DUT
+    // triggers the error instead of hanging the sim.
     c = 0;
-    repeat (100000) begin
+    repeat (500) begin
       @(posedge env.ctrl_agent.vif.clk);
       if (env.scb.dma_rsp_count >= 2) begin c = 1; break; end
     end
     if (!c)
-      `uvm_info("3C", $sformatf("Part B - DUT did not complete DMA read in 100k cycles (dma_rsp_count = %0d); likely truly unresponsive slave scenario.", env.scb.dma_rsp_count), UVM_LOW)
+      `uvm_error("3C", $sformatf("Part B - DUT deficiency: DMA read not completed within bounded window (dma_rsp_count = %0d); DUT hung in WAIT_ACK with no timeout/abort path (expected-RED until a timeout mechanism is added).", env.scb.dma_rsp_count))
     else
-      `uvm_info("3C", $sformatf("Part B - DUT completed DMA read after 10k-cycle slave stall (dma_rsp_count = %0d); wait-for-slave policy observed (no timeout/abort path).", env.scb.dma_rsp_count), UVM_LOW)
+      `uvm_info("3C", $sformatf("OK: Part B - DUT completed DMA read within the bounded window (dma_rsp_count = %0d); timeout/abort mechanism present - deficiency resolved.", env.scb.dma_rsp_count), UVM_LOW)
 
     repeat (10) @(posedge env.ctrl_agent.vif.clk);
     #100ns;
