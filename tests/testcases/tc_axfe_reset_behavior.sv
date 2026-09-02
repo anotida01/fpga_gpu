@@ -7,11 +7,15 @@ import axfe_env_pkg::*;
 import axfe_seq_pkg::*;
 `include "uvm_macros.svh"
 
-// Register-file RESET behavior test (work-order item A.4).
+// Register-file RESET behavior test (work-order item A.4) — the STORED-register
+// half of the reset/lifecycle split in WORK_axfe_scb_refactor.md item 3.
+// This test owns "hard reset clears the stored registers"; the live
+// STATUS=1 path is exercised separately by tc_axfe_intr_status_lifecycle
+// (it needs a start->done first).
 // Verifies:
 //   1. Initial reset leaves all 5 control registers reading 0 after release.
 //   2. After loading non-zero patterns and exercising W1C / auto-clear,
-//      asserting the DUT reset (active high) clears every register
+//      asserting the DUT reset (active high) clears the stored registers
 //      (gpu_ctrl_regfile reset: axil_control.sv:381-383), and the
 //      interrupt generator is also reset (intr_gen reset: axil_control.sv:471).
 //   3. Reg1 (STATUS) bit0 is a LIVE read-only interrupt flag (intr_gen.irq_o),

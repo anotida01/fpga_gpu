@@ -16,7 +16,13 @@ import axfe_seq_pkg::*;
 //      then move to WAIT. The test observes that pulse via wait_start_pulse.
 //   3. With gpu_done still asserted, the DUT completes WAIT→DONE; in DONE it
 //      self-clears the start bit (writes 0 back to Reg0) and returns to IDLE.
-//   4. Read Reg0 and verify the start bit has been auto-cleared (readback
+//      The done event is captured by intr_gen, so the gpu_done interrupt is
+//      latched and Reg1 (STATUS) bit0 reads back as 1.
+//   4. Read Reg1 (STATUS) and verify the live interrupt bit is 1. The test
+//      signals the completion to the scoreboard via report_gpu_done() — the
+//      scoreboard models the live STATUS bit from events, so the test body
+//      carries no register-1 specifics.
+//   5. Read Reg0 and verify the start bit has been auto-cleared (readback
 //      value 0), confirming the self-clearing behavior required by the
 //      register specification.
 class tc_axfe_start_done extends axfe_base_test;
@@ -55,11 +61,18 @@ class tc_axfe_start_done extends axfe_base_test;
     //    during DONE (start-bit self-clear). Give the transitions time to settle.
     repeat(5) @(posedge env.ctrl_agent.vif.clk);
 
-    // 5. Reg0 start bit should have been auto-cleared by DUT (DONE state writes 0 to reg0).
-    //    Sync scoreboard model — DUT did this for us.
-    sync_reg_model(0, 32'h0);
+    // 5. The start->done cycle has completed: intr_gen has captured the gpu_done
+    //    event and latched the interrupt, so Reg1 (STATUS) bit0 reads back as 1.
+    //    Flag the completion to the scoreboard via the event hook, then read
+    //    Reg1. The test body carries no register-1 specifics — the scoreboard
+    //    models the live STATUS bit from the event it was told about.
+    report_gpu_done();
+    read_reg(32'h04);
+    `uvm_info("B6", "Reg1 (STATUS) live bit verified (readback bit0 = 1)", UVM_LOW)
 
-    // 6. Read Reg0 and expect 0 (scoreboard checks match)
+    // 6. Reg0 start bit was auto-cleared by the DUT (DONE state writes 0 to reg0);
+    //    sync the scoreboard's stored model to match, then read Reg0 (expect 0).
+    sync_reg_model(0, 32'h0);
     read_reg(32'h00);
     `uvm_info("B6", "Reg0 self-clear verified (readback = 0)", UVM_LOW)
 

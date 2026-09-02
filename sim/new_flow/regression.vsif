@@ -31,4 +31,9 @@ group tests {
     count: 1;
     sv_seed: random;
   }
+  test tc_axfe_intr_status_lifecycle {
+    sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axfe_intr_status_lifecycle";
+    count: 1;
+    sv_seed: random;
+  }
 }

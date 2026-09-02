@@ -41,24 +41,30 @@ class axfe_base_test extends uvm_test;
 
   // Overwrite the scoreboard's cached register model (used to sync after DUT auto-clear).
   task sync_reg_model(int idx, logic [31:0] val);
-    if (idx >= 0 && idx < 5) env.scb.regs[idx] = val;
-    if (idx == 3) env.scb.dma_input_offset = val;
+    if (idx >= 0 && idx < 5) env.scb.rm[idx].stored = val;
   endtask
 
-  // Reset the scoreboard model to 0 post-reset
+  // Reset the scoreboard model post-reset: clears stored regs AND the live
+  // STATUS bit (intr_gen is reset by the DUT reset, so the interrupt clears).
   task reset_scb_model();
-    for (int i = 0; i < 5; i++) env.scb.regs[i] = 32'h0;
-    env.scb.dma_input_offset = 32'h0;
-    // intr_gen is reset by the DUT reset, so the live STATUS bit clears too.
-    env.scb.status_gpu_done = 32'h0;
+    env.scb.model_reset();
   endtask
 
-  // Reflect the DUT's live STATUS bit0 (gpu_done interrupt) into the scoreboard
-  // model. Called by tests after a start->done cycle sets the interrupt, or
-  // after INT_CLR / reset clears it — mirroring intr_gen.irq_o.
-  function void set_status_gpu_done(int v);
-    if (v) env.scb.status_gpu_done = 32'h1;
-    else   env.scb.status_gpu_done = 32'h0;
+  // --- Live STATUS (Reg1 bit0) event hooks -----------------------------------
+  // The scoreboard mirrors the DUT's intr_gen.irq_o via explicit event hooks so
+  // tests read like the RTL and don't carry DUT interrupt knowledge:
+  //   report_gpu_done() : a start->done cycle has completed (interrupt latched)
+  //   clear_gpu_done()  : INT_CLR W1C wrote the interrupt clear
+  // Note: a Reg2 (INT_CLR) write already clears the model automatically inside
+  // the scoreboard's write path; call clear_gpu_done() only to mirror a model
+  // that did not already do so.
+
+  function void report_gpu_done();
+    env.scb.report_gpu_done();
+  endfunction
+
+  function void clear_gpu_done();
+    env.scb.clear_gpu_done();
   endfunction
 
   task do_reset(int hold_cycles = 2);
