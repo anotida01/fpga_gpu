@@ -26,6 +26,11 @@ group tests {
     count: 1;
     sv_seed: random;
   }
+  test tc_axfe_start_busy {
+    sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axfe_start_busy";
+    count: 1;
+    sv_seed: random;
+  }
   test tc_axfe_reset_behavior {
     sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axfe_reset_behavior";
     count: 1;

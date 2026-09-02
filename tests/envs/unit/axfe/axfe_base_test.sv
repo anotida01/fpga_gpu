@@ -39,6 +39,21 @@ class axfe_base_test extends uvm_test;
     if (vif_gpu_hs.mon_cb.start) `uvm_error("BTEST", "gpu_start did not deassert (expected a pulse)")
   endtask
 
+  // Prove that no gpu_start pulse is emitted within window cycles of now and
+  // that the line stays low at the end (the inverse of wait_start_pulse).
+  // Used to assert a deferred start (GPU busy) did not prematurely fire the
+  // GPU launch. Fails immediately if a pulse is seen within the window.
+  task assert_no_start_pulse(int window = 200);
+    if (vif_gpu_hs == null) `uvm_fatal("BTEST", "vif_gpu_hs not available")
+    repeat (window) begin
+      @(vif_gpu_hs.mon_cb);
+      if (vif_gpu_hs.mon_cb.start)
+        `uvm_error("BTEST", "gpu_start asserted but was expected to stay low (start deferred)")
+    end
+    if (vif_gpu_hs.mon_cb.start)
+      `uvm_error("BTEST", "gpu_start is high at the end of the no-pulse window (expected low)")
+  endtask
+
   // Overwrite the scoreboard's cached register model (used to sync after DUT auto-clear).
   task sync_reg_model(int idx, logic [31:0] val);
     if (idx >= 0 && idx < 5) env.scb.rm[idx].stored = val;
