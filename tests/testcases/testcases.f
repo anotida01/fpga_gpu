@@ -3,6 +3,9 @@ $PROJ_DIR/tests/testcases/tc_axfe_regmap_corner.sv
 $PROJ_DIR/tests/testcases/tc_axfe_start_done.sv
 $PROJ_DIR/tests/testcases/tc_axfe_start_busy.sv
 $PROJ_DIR/tests/testcases/tc_axfe_start_dma_overlap.sv
+$PROJ_DIR/tests/testcases/tc_axfe_dma_backpressure.sv
+$PROJ_DIR/tests/testcases/tc_axfe_dma_base_offset.sv
+$PROJ_DIR/tests/testcases/tc_axfe_dma_timeout.sv
 $PROJ_DIR/tests/testcases/tc_axfe_reset_behavior.sv
 $PROJ_DIR/tests/testcases/tc_axfe_intr_status_lifecycle.sv
 #$PROJ_DIR/tests/testcases/tc_axilfe_error/tc_axilfe_error.sv

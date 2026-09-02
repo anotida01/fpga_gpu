@@ -43,6 +43,14 @@ package axi4lite_pkg;
       if (mem.exists(addr)) return mem[addr];
       return 32'hX;
     endfunction
+
+    // Slave-side read stall (0 = none, default): the responder holds rvalid
+    // deasserted this many cycles after latching arvalid before driving its
+    // response. Used to exercise a late slave on the DMA read path; a large
+    // value (e.g. >> master's timeout) models a truly unresponsive slave, in
+    // which case the DUT's timeout/watchdog (if any) is what lets the test
+    // proceed. Tests that want to bound the master's own wait use it directly.
+    int unsigned rd_stall_cycles = 0;
   endclass
 
   // --- Master Driver ---
@@ -178,6 +186,14 @@ package axi4lite_pkg;
       rd_addr = vif.araddr;
       vif.arready <= 1'b0;
       
+      // Slave-side stall: hold rvalid low for rd_stall_cycles after latching arvalid
+      // (0 = no stall). Used to model a late or (with a large value) unresponsive
+      // slave on the DMA read path; the DUT must not hang indefinitely in this case.
+      if (mem_model != null && mem_model.rd_stall_cycles > 0) begin
+        repeat (mem_model.rd_stall_cycles) @(posedge vif.clk);
+        mem_model.rd_stall_cycles = 0;
+      end
+
       if (mem_model != null) begin
         vif.rdata <= mem_model.read(rd_addr);
       end else begin

@@ -6,7 +6,7 @@ package pipe_pkg;
     rand logic [31:0] addr;
     rand logic [31:0] data;
     rand int          delay;
-    
+
     `uvm_object_utils_begin(pipe_item)
       `uvm_field_int(addr, UVM_ALL_ON)
       `uvm_field_int(data, UVM_ALL_ON)
@@ -23,6 +23,19 @@ package pipe_pkg;
   class pipe_driver extends uvm_driver #(pipe_item);
     virtual pipe_if vif;
     bit is_responder = 0; // 0: drives valid/data/addr, 1: drives ready
+    // Responder-owned backpressure: a queue of stall lengths (cycles to hold
+    // ready low) applied to successive valid/ready handshakes. A test pushes one
+    // entry per expected response (in order); the responder pops the front
+    // before releasing ready (0 if the queue is empty). A queue (not a scalar)
+    // keeps values applied in order despite the test thread advancing ahead of
+    // the async responder — the DUT's own ready gating already serializes
+    // successive req/rsp, so pop order == req order.
+    int unsigned rdy_stall_q[$];
+
+    // Push a stall length for the next response this responder will service.
+    function void push_rdy_stall(int unsigned cyc);
+      rdy_stall_q.push_back(cyc);
+    endfunction
 
     `uvm_component_utils(pipe_driver)
 
@@ -46,8 +59,27 @@ package pipe_pkg;
           seq_item_port.item_done();
         end
       end else begin
-        vif.ready <= 1'b1; // Default ready for responder
-        forever @(posedge vif.clk);
+        int unsigned stall;
+        vif.ready <= 1'b0;
+        forever begin
+          // Wait for the source to offer a transaction (valid asserted).
+          while (!vif.valid) @(posedge vif.clk);
+          // TRUE backpressure: while the source holds valid (word retention),
+          // hold ready LOW for `stall` cycles (0 = none, preserving the legacy
+          // always-ready behavior). A single responder process keeps this
+          // applied in request order — the DUT's own ready gating serializes
+          // successive req/rsp, so each stall maps to the correct response.
+          stall = (rdy_stall_q.size() > 0) ? rdy_stall_q.pop_front() : 0;
+          if (stall > 0)
+            repeat (stall) @(posedge vif.clk);
+          // Release ready for one cycle: the valid/ready handshake now completes.
+          vif.ready <= 1'b1;
+          @(posedge vif.clk);
+          vif.ready <= 1'b0;
+          // Ensure the source has deasserted valid (moved on) before servicing
+          // the next transaction, so we do not double-catch the same valid.
+          while (vif.valid) @(posedge vif.clk);
+        end
       end
     endtask
   endclass

@@ -163,8 +163,7 @@ class axfe_scoreboard extends uvm_scoreboard;
   endfunction
 
   function void report_phase(uvm_phase phase);
-    `uvm_info("SCB_REPORT", $sformatf("=== Summary: CTRL Checks: %0d, DMA Reqs: %0d, DMA Rsps: %0d ===", 
-               ctrl_check_count, dma_req_count, dma_rsp_count), UVM_LOW)
+    `uvm_info("SCB_REPORT", $sformatf("=== Summary: CTRL Checks: %0d, DMA Reqs: %0d, DMA Rsps: %0d ===", ctrl_check_count, dma_req_count, dma_rsp_count), UVM_LOW)
   endfunction
 
 endclass
