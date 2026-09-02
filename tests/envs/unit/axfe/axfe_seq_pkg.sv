@@ -14,6 +14,8 @@ package axfe_seq_pkg;
   class axfe_axil_write_seq extends axfe_base_seq;
     logic [31:0] addr;
     logic [31:0] data;
+    aw_w_mode_e  aw_w_mode = AW_W_SIMULTANEOUS;
+    int unsigned aw_w_gap  = 0;
     `uvm_object_utils(axfe_axil_write_seq)
     task body();
       axi4lite_seq_item item = axi4lite_seq_item::type_id::create("item");
@@ -22,6 +24,8 @@ package axfe_seq_pkg;
       item.addr = addr;
       item.data = data;
       item.strb = 4'hF;
+      item.aw_w_mode = aw_w_mode;
+      item.aw_w_gap  = aw_w_gap;
       finish_item(item);
     endtask
   endclass

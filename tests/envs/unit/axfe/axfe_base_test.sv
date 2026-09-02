@@ -106,6 +106,20 @@ class axfe_base_test extends uvm_test;
     seq.start(env.ctrl_agent.sqr);
   endtask
 
+  // AW/W re-ordering write: aw_w_mode controls whether AW and W handshakes are
+  // driven simultaneously (default, AW_W_SIMULTANEOUS) or sequentially
+  // (AW_FIRST / W_FIRST) with aw_w_gap idle cycles between the two handshakes.
+  task write_reg_seq(logic [31:0] addr, logic [31:0] data,
+                     aw_w_mode_e aw_w_mode = AW_W_SIMULTANEOUS,
+                     int unsigned aw_w_gap = 0);
+    axfe_axil_write_seq seq = axfe_axil_write_seq::type_id::create("seq");
+    seq.addr = addr;
+    seq.data = data;
+    seq.aw_w_mode = aw_w_mode;
+    seq.aw_w_gap  = aw_w_gap;
+    seq.start(env.ctrl_agent.sqr);
+  endtask
+
   task read_reg(logic [31:0] addr);
     axfe_axil_read_seq seq = axfe_axil_read_seq::type_id::create("seq");
     seq.addr = addr;

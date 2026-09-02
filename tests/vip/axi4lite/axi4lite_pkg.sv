@@ -3,6 +3,7 @@ package axi4lite_pkg;
   `include "uvm_macros.svh"
 
   typedef enum { READ, WRITE } op_type_e;
+  typedef enum { AW_W_SIMULTANEOUS, AW_FIRST, W_FIRST } aw_w_mode_e;
 
   class axi4lite_seq_item extends uvm_sequence_item;
     rand op_type_e op;
@@ -12,7 +13,9 @@ package axi4lite_pkg;
     rand logic [2:0]  prot;
     
     logic [1:0] resp;
-    
+    aw_w_mode_e  aw_w_mode = AW_W_SIMULTANEOUS;
+    int unsigned aw_w_gap  = 0;
+
     `uvm_object_utils_begin(axi4lite_seq_item)
       `uvm_field_enum(op_type_e, op, UVM_ALL_ON)
       `uvm_field_int(addr, UVM_ALL_ON)
@@ -20,6 +23,8 @@ package axi4lite_pkg;
       `uvm_field_int(strb, UVM_ALL_ON)
       `uvm_field_int(prot, UVM_ALL_ON)
       `uvm_field_int(resp, UVM_ALL_ON)
+      `uvm_field_enum(aw_w_mode_e, aw_w_mode, UVM_ALL_ON)
+      `uvm_field_int(aw_w_gap, UVM_ALL_ON)
     `uvm_object_utils_end
 
     function new(string name = "axi4lite_seq_item");
@@ -84,6 +89,14 @@ package axi4lite_pkg;
     endtask
 
     task drive_write(axi4lite_seq_item item);
+      case (item.aw_w_mode)
+        AW_FIRST : drive_write_aw_first(item);
+        W_FIRST  : drive_write_w_first(item);
+        default  : drive_write_simultaneous(item);
+      endcase
+    endtask
+
+    task drive_write_simultaneous(axi4lite_seq_item item);
       @(posedge vif.clk);
       vif.awaddr  <= item.addr;
       vif.awprot  <= item.prot;
@@ -91,7 +104,7 @@ package axi4lite_pkg;
       vif.wdata   <= item.data;
       vif.wstrb   <= item.strb;
       vif.wvalid  <= 1'b1;
-      
+
       fork
         begin
           do @(posedge vif.clk); while (!vif.awready);
@@ -102,7 +115,43 @@ package axi4lite_pkg;
           vif.wvalid <= 1'b0;
         end
       join
-      
+
+      drive_write_resp(item);
+    endtask
+
+    task drive_write_aw_first(axi4lite_seq_item item);
+      @(posedge vif.clk);
+      vif.awaddr  <= item.addr;
+      vif.awprot  <= item.prot;
+      vif.awvalid <= 1'b1;
+      do @(posedge vif.clk); while (!vif.awready);
+      vif.awvalid <= 1'b0;
+      for (int i = 0; i < item.aw_w_gap; i++) @(posedge vif.clk);
+      vif.wdata   <= item.data;
+      vif.wstrb   <= item.strb;
+      vif.wvalid  <= 1'b1;
+      do @(posedge vif.clk); while (!vif.wready);
+      vif.wvalid  <= 1'b0;
+      drive_write_resp(item);
+    endtask
+
+    task drive_write_w_first(axi4lite_seq_item item);
+      @(posedge vif.clk);
+      vif.wdata   <= item.data;
+      vif.wstrb   <= item.strb;
+      vif.wvalid  <= 1'b1;
+      do @(posedge vif.clk); while (!vif.wready);
+      vif.wvalid  <= 1'b0;
+      for (int i = 0; i < item.aw_w_gap; i++) @(posedge vif.clk);
+      vif.awaddr  <= item.addr;
+      vif.awprot  <= item.prot;
+      vif.awvalid <= 1'b1;
+      do @(posedge vif.clk); while (!vif.awready);
+      vif.awvalid <= 1'b0;
+      drive_write_resp(item);
+    endtask
+
+    task drive_write_resp(axi4lite_seq_item item);
       vif.bready <= 1'b1;
       do @(posedge vif.clk); while (!vif.bvalid);
       item.resp = vif.bresp;
