@@ -14,6 +14,7 @@ $PROJ_DIR/tests/testcases/tc_axfe_wait_block_write.sv
 $PROJ_DIR/tests/testcases/tc_axfe_reset_mid_write.sv
 $PROJ_DIR/tests/testcases/tc_axfe_reset_mid_read.sv
 $PROJ_DIR/tests/testcases/tc_axfe_reset_mid_dma.sv
+$PROJ_DIR/tests/testcases/tc_axfe_reset_mid_start.sv
 $PROJ_DIR/tests/testcases/tc_axfe_wstrb_partial.sv
 $PROJ_DIR/tests/testcases/tc_axfe_prot_variety.sv
 #$PROJ_DIR/tests/testcases/tc_axilfe_error/tc_axilfe_error.sv
