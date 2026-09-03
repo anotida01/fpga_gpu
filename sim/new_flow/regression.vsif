@@ -86,6 +86,11 @@ group tests {
     count: 1;
     sv_seed: random;
   }
+  test tc_axfe_reset_mid_dma {
+    sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axfe_reset_mid_dma";
+    count: 1;
+    sv_seed: random;
+  }
   test tc_axfe_wstrb_partial {
     sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axfe_wstrb_partial";
     count: 1;

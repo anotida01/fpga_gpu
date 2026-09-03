@@ -82,6 +82,13 @@ class axfe_scoreboard extends uvm_scoreboard;
       rm[i].wmask   = (i == 1) ? 32'h1 : 32'hFFFFFFFF;
       rm[i].stored  = 32'h0;
     end
+    // A hard reset drops any in-flight DMA read in the DUT (axil_dma_master:
+    // reset -> state<=RESET, address_i_reg/dma_out<=0), so a req pushed by the
+    // monitor before the reset has no post-reset response. Clear the pending
+    // req queue so check_phase does not flag it as "unfinished". A GENUINE
+    // post-reset DMA response is still caught: with the queue empty,
+    // write_dma_rsp hits the `Unexpected DMA response` error branch below.
+    exp_dma_addr_q.delete();
   endfunction
 
   function void report_gpu_done();
