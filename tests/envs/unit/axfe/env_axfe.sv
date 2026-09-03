@@ -9,6 +9,7 @@ class env_axfe extends uvm_env;
   clk_rst_ctrl   clk;
   
   axfe_scoreboard scb;
+  axfe_cov_sampler cov;
   axi4lite_mem_model mem;
 
   `uvm_component_utils(env_axfe)
@@ -32,11 +33,13 @@ class env_axfe extends uvm_env;
     
     clk = clk_rst_ctrl::type_id::create("clk", this);
     scb = axfe_scoreboard::type_id::create("scb", this);
+    cov = axfe_cov_sampler::type_id::create("cov", this);
     mem = axi4lite_mem_model::type_id::create("mem", this);
   endfunction
 
   function void connect_phase(uvm_phase phase);
     ctrl_agent.mon.ap.connect(scb.ctrl_export);
+    ctrl_agent.mon.ap.connect(cov.analysis_export);
     dma_req_agent.mon.ap.connect(scb.dma_req_export);
     dma_rsp_agent.mon.ap.connect(scb.dma_rsp_export);
     scb.mem_model = mem;

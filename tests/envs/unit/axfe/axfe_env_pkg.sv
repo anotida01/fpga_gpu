@@ -6,5 +6,6 @@ package axfe_env_pkg;
   `include "uvm_macros.svh"
 
   `include "axfe_scoreboard.sv"
+  `include "axfe_cov_sampler.sv"
   `include "env_axfe.sv"
 endpackage
