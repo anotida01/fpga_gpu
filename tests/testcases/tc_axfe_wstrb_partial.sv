@@ -43,7 +43,7 @@ class tc_axfe_wstrb_partial extends axfe_base_test;
   // full-word write is honored by both the DUT and the scoreboard, so this
   // round-trip passes and gives each partial step a clean, independent basis.
   task baseline();
-    write_reg_strb(REG_IN_MEM_OFF, PATTERN, 4'hF);
+    write_reg(REG_IN_MEM_OFF, PATTERN, 4'hF);
     read_reg(REG_IN_MEM_OFF);
   endtask
 
@@ -62,7 +62,7 @@ class tc_axfe_wstrb_partial extends axfe_base_test;
 
     // --- Step 2: partial write, LSByte only (EXPECTED FAIL vs current DUT) ---
     baseline();
-    write_reg_strb(REG_IN_MEM_OFF, 32'h00000011, 4'h1); // strb=1: only byte0
+    write_reg(REG_IN_MEM_OFF, 32'h00000011, 4'h1); // strb=1: only byte0
     read_reg(REG_IN_MEM_OFF);
     // Intended (scoreboard):  A5A5A511  (byte0=0x11, bytes1-3 preserved)
     // Current DUT (full-word): 00000011  -> UVM_ERROR, this is the deficiency.
@@ -70,14 +70,14 @@ class tc_axfe_wstrb_partial extends axfe_base_test;
 
     // --- Step 3: partial write, HSByte only (EXPECTED FAIL vs current DUT) ---
     baseline();
-    write_reg_strb(REG_IN_MEM_OFF, 32'h11000000, 4'h8); // strb=8: only byte3
+    write_reg(REG_IN_MEM_OFF, 32'h11000000, 4'h8); // strb=8: only byte3
     read_reg(REG_IN_MEM_OFF);
     // Intended (scoreboard):  11A5A5A5  (byte3=0x11, bytes0-2 preserved)
     // Current DUT (full-word): 0x11000000  -> UVM_ERROR, this is the deficiency.
     `uvm_info("TEST", "Step 3 (byte3 partial write) readback checked", UVM_LOW)
 
     // --- Step 4: cleanup — reset Reg3 to a known value (PASS) -----------------
-    write_reg_strb(REG_IN_MEM_OFF, 32'h00000000, 4'hF);
+    write_reg(REG_IN_MEM_OFF, 32'h00000000, 4'hF);
     read_reg(REG_IN_MEM_OFF);
 
     `uvm_info("TEST", "WSTRB partial-write test complete", UVM_LOW)

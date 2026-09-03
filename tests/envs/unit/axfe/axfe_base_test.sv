@@ -99,10 +99,16 @@ class axfe_base_test extends uvm_test;
     env.clk.set_clk_period_ns(period_ns);
   endfunction
 
-  task write_reg(logic [31:0] addr, logic [31:0] data);
+  // Primary CTRL write. `strb` (default full word) and `prot` (default 0) drive
+  // the AXI4-Lite write-strobe and protection fields; the defaults keep every
+  // pre-existing 2-arg call identical to the old fixed-full-word behavior.
+  task write_reg(logic [31:0] addr, logic [31:0] data,
+                 logic [3:0] strb = 4'hF, logic [2:0] prot = 3'h0);
     axfe_axil_write_seq seq = axfe_axil_write_seq::type_id::create("seq");
     seq.addr = addr;
     seq.data = data;
+    seq.strb = strb;
+    seq.prot = prot;
     seq.start(env.ctrl_agent.sqr);
   endtask
 
@@ -120,20 +126,12 @@ class axfe_base_test extends uvm_test;
     seq.start(env.ctrl_agent.sqr);
   endtask
 
-  // Write with an explicit WSTRB byte-select (default 4'hF = full word). Drives
-  // partial writes so the scoreboard's WSTRB byte-select expectation is
-  // exercised; see axfe_scoreboard write_ctrl.
-  task write_reg_strb(logic [31:0] addr, logic [31:0] data, logic [3:0] strb = 4'hF);
-    axfe_axil_write_seq seq = axfe_axil_write_seq::type_id::create("seq");
-    seq.addr = addr;
-    seq.data = data;
-    seq.strb = strb;
-    seq.start(env.ctrl_agent.sqr);
-  endtask
-
-  task read_reg(logic [31:0] addr);
+  // Primary CTRL read. `prot` (default 0) drives the AXI4-Lite read protection
+  // field; the 1-arg form is identical to the old fixed behavior.
+  task read_reg(logic [31:0] addr, logic [2:0] prot = 3'h0);
     axfe_axil_read_seq seq = axfe_axil_read_seq::type_id::create("seq");
     seq.addr = addr;
+    seq.prot = prot;
     seq.start(env.ctrl_agent.sqr);
   endtask
 
