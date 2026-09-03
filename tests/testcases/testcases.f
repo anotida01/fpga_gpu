@@ -10,6 +10,7 @@ $PROJ_DIR/tests/testcases/tc_axfe_reset_behavior.sv
 $PROJ_DIR/tests/testcases/tc_axfe_intr_status_lifecycle.sv
 $PROJ_DIR/tests/testcases/tc_axfe_bus_timing.sv
 $PROJ_DIR/tests/testcases/tc_axfe_resp_status.sv
+$PROJ_DIR/tests/testcases/tc_axfe_wait_block_write.sv
 $PROJ_DIR/tests/testcases/tc_axfe_wstrb_partial.sv
 $PROJ_DIR/tests/testcases/tc_axfe_prot_variety.sv
 #$PROJ_DIR/tests/testcases/tc_axilfe_error/tc_axilfe_error.sv

@@ -112,6 +112,19 @@ class axfe_base_test extends uvm_test;
     seq.start(env.ctrl_agent.sqr);
   endtask
 
+  // Write that also captures the DUT's B response (bresp). Identical to
+  // write_reg in what it drives; the only addition is returning `resp` so a
+  // test can assert on the response code directly. Needed to expose the
+  // WAIT-block dropped-write response (OKAY vs error) that the scoreboard's
+  // blanket in-range OKAY rule would otherwise mask.
+  task write_capture_resp(logic [31:0] addr, logic [31:0] data, output logic [1:0] resp);
+    axfe_axil_write_seq seq = axfe_axil_write_seq::type_id::create("seq");
+    seq.addr = addr;
+    seq.data = data;
+    seq.start(env.ctrl_agent.sqr);
+    resp = seq.resp;
+  endtask
+
   // AW/W re-ordering write: aw_w_mode controls whether AW and W handshakes are
   // driven simultaneously (default, AW_W_SIMULTANEOUS) or sequentially
   // (AW_FIRST / W_FIRST) with aw_w_gap idle cycles between the two handshakes.

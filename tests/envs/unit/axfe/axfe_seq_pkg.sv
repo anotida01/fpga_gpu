@@ -18,6 +18,11 @@ package axfe_seq_pkg;
     logic [2:0]  prot = 3'h0;   // axi4-lite prot field (default = 0)
     aw_w_mode_e  aw_w_mode = AW_W_SIMULTANEOUS;
     int unsigned aw_w_gap  = 0;
+    // Captured DUT response (bresp) after the write completes. The driver sets
+    // item.resp = vif.bresp before item_done() (axi4lite_pkg.sv drive_write_resp),
+    // so reading it back here exposes the response to the test. Additive: no
+    // existing test references resp, so behavior is unchanged for them.
+    logic [1:0] resp;
     `uvm_object_utils(axfe_axil_write_seq)
     task body();
       axi4lite_seq_item item = axi4lite_seq_item::type_id::create("item");
@@ -30,6 +35,7 @@ package axfe_seq_pkg;
       item.aw_w_mode = aw_w_mode;
       item.aw_w_gap  = aw_w_gap;
       finish_item(item);
+      resp = item.resp;
     endtask
   endclass
 
