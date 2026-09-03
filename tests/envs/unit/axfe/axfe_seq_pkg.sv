@@ -14,6 +14,8 @@ package axfe_seq_pkg;
   class axfe_axil_write_seq extends axfe_base_seq;
     logic [31:0] addr;
     logic [31:0] data;
+    logic [3:0]  strb = 4'hF;   // WSTRB byte-select (default = full word)
+    logic [2:0]  prot = 3'h0;   // axi4-lite prot field (default = 0)
     aw_w_mode_e  aw_w_mode = AW_W_SIMULTANEOUS;
     int unsigned aw_w_gap  = 0;
     `uvm_object_utils(axfe_axil_write_seq)
@@ -23,7 +25,8 @@ package axfe_seq_pkg;
       item.op = WRITE;
       item.addr = addr;
       item.data = data;
-      item.strb = 4'hF;
+      item.strb = strb;
+      item.prot = prot;
       item.aw_w_mode = aw_w_mode;
       item.aw_w_gap  = aw_w_gap;
       finish_item(item);
@@ -32,12 +35,14 @@ package axfe_seq_pkg;
 
   class axfe_axil_read_seq extends axfe_base_seq;
     logic [31:0] addr;
+    logic [2:0]  prot = 3'h0;   // axi4-lite prot field (default = 0)
     `uvm_object_utils(axfe_axil_read_seq)
     task body();
       axi4lite_seq_item item = axi4lite_seq_item::type_id::create("item");
       start_item(item);
       item.op = READ;
       item.addr = addr;
+      item.prot = prot;
       finish_item(item);
     endtask
   endclass

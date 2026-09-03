@@ -128,11 +128,19 @@ class axfe_scoreboard extends uvm_scoreboard;
         `uvm_info("SCB_CTRL", $sformatf("Write to live Reg[%0d] dropped; stored=%b", idx, rm[idx].stored), UVM_MEDIUM)
         return;
       end
+      // Apply AXI4-Lite WSTRB byte-select: only the strobed bytes are written,
+      // the non-strobed bytes keep their prior value. AXI4-Lite (IHI 0022)
+      // requires a compliant slave to honor WSTRB. (The DUT's gpu_ctrl_regfile
+      // currently writes the full word and ignores wb_sel; this is the intended
+      // contract we assert here — a partial-write test will fail against the
+      // DUT until it honors WSTRB. Contract deferred to W6.)
+      for (int b = 0; b < 4; b++)
+        if (item.strb[b]) rm[idx].stored[b*8 +: 8] = item.data[b*8 +: 8];
       // Apply the per-register write mask, then the DUT's W1C/self-clear for
       // INT_CLR (Reg2): writing bit0 clears the gpu_done interrupt
       // (intr_clr_gpu_done_o = registers[2][0], axil_control.sv:358) and the
       // whole register self-clears on any nonzero write (axil_control.sv:399).
-      rm[idx].stored = item.data & rm[idx].wmask;
+      rm[idx].stored = rm[idx].stored & rm[idx].wmask;
       `uvm_info("SCB_CTRL", $sformatf("Write Reg[%0d] = %h (mask %h)", idx, rm[idx].stored, rm[idx].wmask), UVM_MEDIUM)
       if (idx == 2) begin
         if (item.data[0]) clear_gpu_done();
