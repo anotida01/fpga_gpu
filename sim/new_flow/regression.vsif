@@ -7,9 +7,11 @@ session fpga_gpu_regr {
   max_runs_in_parallel: 100;
 }
 
-group tests {
+group axfe {
   run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
   scan_script: "vm_scan.pl ius.flt shell.flt";
+  code_coverage: true;          // coverage merged only across tests in THIS group
+  dut_name: "axfe";             // optional label for Metrics Center reporting [2]
 
   test tc_axfe_basic_wr_rd {
     sim_args: "-r tb_axfe_snap +UVM_TESTNAME=tc_axfe_basic_wr_rd";
@@ -106,11 +108,27 @@ group tests {
     count: 1;
     sv_seed: random;
   }
+}
+
+group rop {
+  run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
+  scan_script: "vm_scan.pl ius.flt shell.flt";
+  code_coverage: true;
+  dut_name: "rop";
+
   test tc_rop_basic {
     sim_args: "-r tb_rop_snap +UVM_TESTNAME=tc_rop_basic";
     count: 1;
     sv_seed: random;
   }
+}
+
+group gpu {
+  run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
+  scan_script: "vm_scan.pl ius.flt shell.flt";
+  code_coverage: true;
+  dut_name: "gpu";
+
   test tc_gpu_smoke_wr_rd {
     sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_smoke_wr_rd";
     count: 1;
