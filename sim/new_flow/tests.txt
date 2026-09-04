@@ -1,0 +1,25 @@
+# test_name                     snapshot_name
+# (snapshot must be a row in snapshots.txt)
+tc_axfe_basic_wr_rd             tb_axfe_snap
+tc_axfe_regmap_corner           tb_axfe_snap
+tc_axfe_start_done              tb_axfe_snap
+tc_axfe_start_busy              tb_axfe_snap
+tc_axfe_start_dma_overlap       tb_axfe_snap
+tc_axfe_dma_backpressure        tb_axfe_snap
+tc_axfe_dma_base_offset         tb_axfe_snap
+tc_axfe_dma_timeout             tb_axfe_snap
+tc_axfe_reset_behavior          tb_axfe_snap
+tc_axfe_intr_status_lifecycle   tb_axfe_snap
+tc_axfe_bus_timing              tb_axfe_snap
+tc_axfe_resp_status             tb_axfe_snap
+tc_axfe_wait_block_write        tb_axfe_snap
+tc_axfe_reset_mid_write         tb_axfe_snap
+tc_axfe_reset_mid_read          tb_axfe_snap
+tc_axfe_reset_mid_dma           tb_axfe_snap
+tc_axfe_reset_mid_start         tb_axfe_snap
+tc_axfe_wstrb_partial           tb_axfe_snap
+tc_axfe_prot_variety            tb_axfe_snap
+# New DUT levels (add a snapshots.txt row + build_<level>.xrun.files first, then map their tests here):
+# tc_vxform_basic               tb_vxform_snap
+# tc_raster_basic               tb_raster_snap
+# tc_box_rendering              tb_gpu_snap

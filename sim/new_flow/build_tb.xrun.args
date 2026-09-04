@@ -3,7 +3,8 @@
 -access +w+r+c
 -timescale 1ps/1ps
 -coverage all
--work work
+-covoverwrite
+#-work work
 -incdir $TESTS_DIR/envs/unit/axfe
 -incdir $TESTS_DIR/vip/gpu_hs
 -incdir $TESTS_DIR/vip/clk_rst

@@ -30,7 +30,7 @@ export SIM_DIR
 export PROJ_DIR
 export TESTS_DIR
 
-DEFAULT_SIM_OPTS="-perfstat -covtest ${TEST_NAME} -covoverwrite"
+DEFAULT_SIM_OPTS="-perfstat -covtest ${TEST_NAME}"
 SIM_OPTS+=" ${DEFAULT_SIM_OPTS}"
 
 echo "Snapshot: ${SNAPSHOT}, Test: ${TEST_NAME}, Extra SIM_OPTS: ${SIM_OPTS}"
@@ -53,9 +53,28 @@ set +e
 ln -sfn "$(realpath "${WORK_DIR}")" "${RUNS_DIR}/latest"
 set -e
 
-# Link file manifests and xcelium build dir if available
+SNAPSHOTS_FILE="${SIM_DIR}/snapshots.txt"
+LEVEL=$(awk -v s="$SNAPSHOT" 'NF>=3 && $1==s {print $3; exit}' "${SNAPSHOTS_FILE}")
+
+if [ -z "$LEVEL" ]; then
+  echo "ERROR: snapshot '${SNAPSHOT}' not found (or missing level col) in ${SNAPSHOTS_FILE}"
+  echo "       Add a row (snapshot tb_top level) to ${SNAPSHOTS_FILE}"
+  exit 1
+fi
+TOP_MODULE="tb_${LEVEL}"
+TB_FILES="${SIM_DIR}/build_tb_${LEVEL}.xrun.files"
+if [ ! -f "${TB_FILES}" ]; then
+  echo "ERROR: TB filelist not found: ${TB_FILES}"
+  exit 1
+fi
+
+TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}.sv"
+
+# The snapshot holds the DUT (elaborated at the DUT top).
+# Here we compile the testbench harness (VIP + UVM env + tb_<level>) and the
+# testcase fresh at run time, with the run top = tb_<level>.
 ln -sf "$(realpath "${SIM_DIR}/build_tb.xrun.args")" "${WORK_DIR}/"
-ln -sf "$(realpath "${SIM_DIR}/build_tb.xrun.files")" "${WORK_DIR}/"
+ln -sf "$(realpath "${TB_FILES}")" "${WORK_DIR}/"
 if [ -d "${TESTS_DIR}/testcases/memh" ]; then
   ln -sf "$(realpath "${TESTS_DIR}/testcases/memh")" "${WORK_DIR}/memh"
 fi
@@ -66,22 +85,15 @@ elif [ -d "./xcelium.d" ]; then
   cp -r "$(realpath ./xcelium.d)" "${WORK_DIR}/."
 fi
 
-TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}.sv"
-
-if [ "${TEST_NAME}" = "tc_axfe_basic_wr_rd" ]; then
-  TOP_MODULE="tb_axfe"
-else
-  TOP_MODULE="tb_axfe" # Default to axfe for now
-fi
-
 set +e
 (
   cd "${WORK_DIR}"
-  echo "Executing simulation in ${WORK_DIR}..."
+  echo "Executing simulation in ${WORK_DIR} (top: ${TOP_MODULE})..."
+  TB_RUN_FILE="build_tb_${LEVEL}.xrun.files"
   if [ -f "${TEST_FILE}" ]; then
-    xrun -f build_tb.xrun.args -f build_tb.xrun.files "${TEST_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
+    xrun -f build_tb.xrun.args -f "${TB_RUN_FILE}" "${TEST_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
   else
-    xrun -f build_tb.xrun.args -f build_tb.xrun.files -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
+    xrun -f build_tb.xrun.args -f "${TB_RUN_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
   fi
 )
 EXIT_CODE=$?

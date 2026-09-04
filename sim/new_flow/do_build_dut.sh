@@ -1,14 +1,6 @@
 #!/bin/bash
 set -e
 
-if [ $# -lt 1 ]; then
-  echo "Usage: $0 <snapshot_name>"
-  echo "Defaulting snapshot_name to 'gpu_dut_snap'"
-  SNAPSHOT_NAME="gpu_dut_snap"
-else
-  SNAPSHOT_NAME="$1"
-fi
-
 if [ -z "${SIM_DIR}" ]; then
   SIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
@@ -30,8 +22,73 @@ export PROJ_DIR
 export TESTS_DIR
 export QUARTUS_ROOTDIR
 
-echo "Building DUT snapshot '${SNAPSHOT_NAME}'..."
-xrun -c \
-  -f "${SIM_DIR}/build_dut.xrun.args" \
-  -f "${SIM_DIR}/build_dut.xrun.files" \
-  -snapshot "${SNAPSHOT_NAME}"
+SNAPSHOTS_FILE="${SIM_DIR}/snapshots.txt"
+if [ ! -f "${SNAPSHOTS_FILE}" ]; then
+  echo "ERROR: snapshots file not found: ${SNAPSHOTS_FILE}"
+  exit 1
+fi
+
+# Optional single-snapshot filter:
+#   do_build_dut.sh              -> build every row in snapshots.txt
+#   do_build_dut.sh <snap_name>  -> build only that row
+FILTER="${1:-}"
+
+# All snapshots share one compiled worklib under SIM_DIR/xcelium.d; each snapshot
+# is an elaborated-at-top view of it (xmelab -top <top>), so building a new level
+# never invalidates the compiled units from earlier levels.
+# NB: -xmlibdirpath is the *containing* dir; xrun creates <path>/xcelium.d.
+XMLIB_PARENT="${SIM_DIR}"
+
+BUILD_FAILURES=0
+while IFS= read -r line || [ -n "$line" ]; do
+  # Strip leading whitespace
+  line=$(printf '%s' "$line" | sed 's/^[[:space:]]*//')
+  # Skip blank lines
+  [ -z "$line" ] && continue
+  # Skip comments
+  case "$line" in \#*) continue ;; esac
+
+  snap_name=$(printf '%s' "$line" | awk '{print $1}')
+  top_module=$(printf '%s' "$line" | awk '{print $2}')
+  level=$(printf '%s' "$line" | awk '{print $3}')
+
+  if [ -z "$snap_name" ] || [ -z "$top_module" ] || [ -z "$level" ]; then
+    echo "ERROR: Malformed snapshots.txt row (need: snapshot  tb_top  level): ${line}"
+    BUILD_FAILURES=$((BUILD_FAILURES + 1))
+    continue
+  fi
+  tb_files="${SIM_DIR}/build_tb_${level}.xrun.files"
+  if [ ! -f "$tb_files" ]; then
+    echo "ERROR: TB filelist not found: ${tb_files}"
+    BUILD_FAILURES=$((BUILD_FAILURES + 1))
+    continue
+  fi
+  if [ -n "$FILTER" ] && [ "$snap_name" != "$FILTER" ]; then
+    continue
+  fi
+
+  echo "Building snapshot: ${snap_name} (top: ${top_module}, level: ${level})"
+  set +e
+  xrun -c \
+    -f "${SIM_DIR}/build_dut.xrun.args" \
+    -f "${SIM_DIR}/build_dut.xrun.files" \
+    -f "${SIM_DIR}/build_tb.xrun.args" \
+    -f "${tb_files}" \
+    -top "${top_module}" \
+    -snapshot "${snap_name}" \
+    -xmlibdirpath "${XMLIB_PARENT}"
+  rc=$?
+  set -e
+  if [ $rc -ne 0 ]; then
+    echo "ERROR: Build failed for snapshot ${snap_name} (exit code ${rc}). Continuing with next row."
+    BUILD_FAILURES=$((BUILD_FAILURES + 1))
+  fi
+done < "${SNAPSHOTS_FILE}"
+
+if [ $BUILD_FAILURES -ne 0 ]; then
+  echo "BUILD INCOMPLETE: ${BUILD_FAILURES} snapshot(s) failed to build."
+  exit 1
+fi
+
+echo "All snapshot builds completed."
+exit 0
