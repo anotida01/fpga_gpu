@@ -111,4 +111,9 @@ group tests {
     count: 1;
     sv_seed: random;
   }
+  test tc_gpu_smoke_wr_rd {
+    sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_smoke_wr_rd";
+    count: 1;
+    sv_seed: random;
+  }
 }

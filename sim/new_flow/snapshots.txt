@@ -3,4 +3,4 @@ tb_axfe_snap          tb_axfe
 tb_rop_snap           tb_rop
 # tb_vxform_snap      tb_vxform
 # tb_raster_snap      tb_raster
-# tb_gpu_snap         tb_gpu
+tb_gpu_snap           tb_gpu

@@ -19,3 +19,8 @@ $TESTS_DIR/envs/unit/axfe/tb_axfe.sv
 $TESTS_DIR/envs/unit/rop/rop_env_pkg.sv
 $TESTS_DIR/envs/unit/rop/rop_seq_pkg.sv
 $TESTS_DIR/envs/unit/rop/tb_rop.sv
+
+# GPU System Testbench (env_gpu / axil_sys_top)
+$TESTS_DIR/envs/system/gpu/gpu_env_pkg.sv
+$TESTS_DIR/envs/system/gpu/gpu_seq_pkg.sv
+$TESTS_DIR/envs/system/gpu/tb_gpu.sv
