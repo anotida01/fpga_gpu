@@ -1,8 +1,6 @@
-# snapshot_name       tb_top            level
-# level is used by do_run_sim.sh to derive:
-#   TB top:        tb_<level>
-#   TB filelist:   SIM_DIR/build_tb_<level>.xrun.files
-tb_axfe_snap          tb_axfe           axfe
-# tb_vxform_snap      tb_vxform         vxform
-# tb_raster_snap      tb_raster         raster
-# tb_gpu_snap         tb_gpu            gpu
+# snapshot_name       tb_top
+tb_axfe_snap          tb_axfe
+tb_rop_snap           tb_rop
+# tb_vxform_snap      tb_vxform
+# tb_raster_snap      tb_raster
+# tb_gpu_snap         tb_gpu

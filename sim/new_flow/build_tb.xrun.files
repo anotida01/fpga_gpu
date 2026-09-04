@@ -1,11 +1,21 @@
+# VIP Interfaces
 $TESTS_DIR/vip/axi4lite/axi4lite_if.sv
 $TESTS_DIR/vip/pipe/pipe_if.sv
 $TESTS_DIR/vip/gpu_hs/gpu_hs_if.sv
 $TESTS_DIR/vip/clk_rst/clk_rst_if.sv
+
+# VIP Packages
 $TESTS_DIR/vip/axi4lite/axi4lite_pkg.sv
 $TESTS_DIR/vip/pipe/pipe_pkg.sv
 $TESTS_DIR/vip/gpu_hs/gpu_hs_pkg.sv
 $TESTS_DIR/vip/clk_rst/clk_rst_pkg.sv
+
+# AXFE Unit Testbench
 $TESTS_DIR/envs/unit/axfe/axfe_env_pkg.sv
 $TESTS_DIR/envs/unit/axfe/axfe_seq_pkg.sv
 $TESTS_DIR/envs/unit/axfe/tb_axfe.sv
+
+# ROP Unit Testbench
+$TESTS_DIR/envs/unit/rop/rop_env_pkg.sv
+$TESTS_DIR/envs/unit/rop/rop_seq_pkg.sv
+$TESTS_DIR/envs/unit/rop/tb_rop.sv

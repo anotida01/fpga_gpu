@@ -50,14 +50,13 @@ while IFS= read -r line || [ -n "$line" ]; do
 
   snap_name=$(printf '%s' "$line" | awk '{print $1}')
   top_module=$(printf '%s' "$line" | awk '{print $2}')
-  level=$(printf '%s' "$line" | awk '{print $3}')
 
-  if [ -z "$snap_name" ] || [ -z "$top_module" ] || [ -z "$level" ]; then
-    echo "ERROR: Malformed snapshots.txt row (need: snapshot  tb_top  level): ${line}"
+  if [ -z "$snap_name" ] || [ -z "$top_module" ]; then
+    echo "ERROR: Malformed snapshots.txt row (need: snapshot  tb_top): ${line}"
     BUILD_FAILURES=$((BUILD_FAILURES + 1))
     continue
   fi
-  tb_files="${SIM_DIR}/build_tb_${level}.xrun.files"
+  tb_files="${SIM_DIR}/build_tb.xrun.files"
   if [ ! -f "$tb_files" ]; then
     echo "ERROR: TB filelist not found: ${tb_files}"
     BUILD_FAILURES=$((BUILD_FAILURES + 1))
@@ -67,7 +66,7 @@ while IFS= read -r line || [ -n "$line" ]; do
     continue
   fi
 
-  echo "Building snapshot: ${snap_name} (top: ${top_module}, level: ${level})"
+  echo "Building snapshot: ${snap_name} (top: ${top_module})"
   set +e
   xrun -c \
     -f "${SIM_DIR}/build_dut.xrun.args" \

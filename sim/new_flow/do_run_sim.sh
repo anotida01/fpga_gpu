@@ -54,15 +54,14 @@ ln -sfn "$(realpath "${WORK_DIR}")" "${RUNS_DIR}/latest"
 set -e
 
 SNAPSHOTS_FILE="${SIM_DIR}/snapshots.txt"
-LEVEL=$(awk -v s="$SNAPSHOT" 'NF>=3 && $1==s {print $3; exit}' "${SNAPSHOTS_FILE}")
+TOP_MODULE=$(awk -v s="$SNAPSHOT" 'NF>=2 && $1==s {print $2; exit}' "${SNAPSHOTS_FILE}")
 
-if [ -z "$LEVEL" ]; then
-  echo "ERROR: snapshot '${SNAPSHOT}' not found (or missing level col) in ${SNAPSHOTS_FILE}"
-  echo "       Add a row (snapshot tb_top level) to ${SNAPSHOTS_FILE}"
+if [ -z "$TOP_MODULE" ]; then
+  echo "ERROR: snapshot '${SNAPSHOT}' not found in ${SNAPSHOTS_FILE}"
+  echo "       Add a row (snapshot tb_top) to ${SNAPSHOTS_FILE}"
   exit 1
 fi
-TOP_MODULE="tb_${LEVEL}"
-TB_FILES="${SIM_DIR}/build_tb_${LEVEL}.xrun.files"
+TB_FILES="${SIM_DIR}/build_tb.xrun.files"
 if [ ! -f "${TB_FILES}" ]; then
   echo "ERROR: TB filelist not found: ${TB_FILES}"
   exit 1
@@ -89,7 +88,7 @@ set +e
 (
   cd "${WORK_DIR}"
   echo "Executing simulation in ${WORK_DIR} (top: ${TOP_MODULE})..."
-  TB_RUN_FILE="build_tb_${LEVEL}.xrun.files"
+  TB_RUN_FILE="build_tb.xrun.files"
   if [ -f "${TEST_FILE}" ]; then
     xrun -f build_tb.xrun.args -f "${TB_RUN_FILE}" "${TEST_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
   else
