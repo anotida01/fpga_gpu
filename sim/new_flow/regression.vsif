@@ -10,7 +10,6 @@ session fpga_gpu_regr {
 group axfe {
   run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
   scan_script: "vm_scan.pl ius.flt shell.flt";
-  code_coverage: true;          // coverage merged only across tests in THIS group
   dut_name: "axfe";             // optional label for Metrics Center reporting [2]
 
   test tc_axfe_basic_wr_rd {
@@ -113,7 +112,6 @@ group axfe {
 group rop {
   run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
   scan_script: "vm_scan.pl ius.flt shell.flt";
-  code_coverage: true;
   dut_name: "rop";
 
   test tc_rop_basic {
@@ -126,7 +124,6 @@ group rop {
 group gpu {
   run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
   scan_script: "vm_scan.pl ius.flt shell.flt";
-  code_coverage: true;
   dut_name: "gpu";
 
   test tc_gpu_smoke_wr_rd {
