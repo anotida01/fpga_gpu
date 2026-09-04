@@ -6,5 +6,6 @@
 -covoverwrite
 #-work work
 -incdir $TESTS_DIR/envs/unit/axfe
+-incdir $TESTS_DIR/envs/unit/rop
 -incdir $TESTS_DIR/vip/gpu_hs
 -incdir $TESTS_DIR/vip/clk_rst

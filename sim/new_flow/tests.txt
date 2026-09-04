@@ -19,6 +19,7 @@ tc_axfe_reset_mid_dma           tb_axfe_snap
 tc_axfe_reset_mid_start         tb_axfe_snap
 tc_axfe_wstrb_partial           tb_axfe_snap
 tc_axfe_prot_variety            tb_axfe_snap
+tc_rop_basic                    tb_rop_snap
 # New DUT levels (add a snapshots.txt row + build_<level>.xrun.files first, then map their tests here):
 # tc_vxform_basic               tb_vxform_snap
 # tc_raster_basic               tb_raster_snap

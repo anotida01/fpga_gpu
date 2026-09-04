@@ -65,3 +65,6 @@ docs/generated/*
 # c_model
 c_model/build/*
 c_model/cmake-build-debug/*
+
+# work orders (session-scoped; must not be checked in)
+workorders/

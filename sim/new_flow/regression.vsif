@@ -106,4 +106,9 @@ group tests {
     count: 1;
     sv_seed: random;
   }
+  test tc_rop_basic {
+    sim_args: "-r tb_rop_snap +UVM_TESTNAME=tc_rop_basic";
+    count: 1;
+    sv_seed: random;
+  }
 }
