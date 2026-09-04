@@ -39,6 +39,24 @@ FILTER="${1:-}"
 # NB: -xmlibdirpath is the *containing* dir; xrun creates <path>/xcelium.d.
 XMLIB_PARENT="${SIM_DIR}"
 
+# runs/ must be the scratch symlink (same convention as do_run_sim.sh)
+SCRATCH_PATH="/scratch/${USER}/fpga_gpu_runs"
+mkdir -p "${SCRATCH_PATH}"
+RUNS_DIR="${SIM_DIR}/runs"
+if [ -d "${RUNS_DIR}" ] && [ ! -L "${RUNS_DIR}" ]; then
+  # runs was created as a real dir; fold its contents into scratch and replace with the symlink
+  echo "Migrating ${RUNS_DIR} -> ${SCRATCH_PATH} and replacing with symlink"
+  cp -a "${RUNS_DIR}/." "${SCRATCH_PATH}/"
+  rm -rf "${RUNS_DIR}"
+fi
+if [ ! -L "${RUNS_DIR}" ] && [ ! -d "${RUNS_DIR}" ]; then
+  echo "Creating symlink for ${RUNS_DIR} -> ${SCRATCH_PATH}"
+  ln -s "${SCRATCH_PATH}" "${RUNS_DIR}"
+fi
+
+XRUN_LOG_DIR="${RUNS_DIR}/xrun_build_logs"
+mkdir -p "${XRUN_LOG_DIR}"
+
 BUILD_FAILURES=0
 while IFS= read -r line || [ -n "$line" ]; do
   # Strip leading whitespace
@@ -67,6 +85,8 @@ while IFS= read -r line || [ -n "$line" ]; do
   fi
 
   echo "Building snapshot: ${snap_name} (top: ${top_module})"
+  snap_log="${XRUN_LOG_DIR}/${snap_name}.log"
+  echo "  log: ${snap_log}"
   set +e
   xrun -c \
     -f "${SIM_DIR}/build_dut.xrun.args" \
@@ -75,7 +95,9 @@ while IFS= read -r line || [ -n "$line" ]; do
     -f "${tb_files}" \
     -top "${top_module}" \
     -snapshot "${snap_name}" \
-    -xmlibdirpath "${XMLIB_PARENT}"
+    -xmlibdirpath "${XMLIB_PARENT}" \
+    -perfstat \
+    -log "${snap_log}"
   rc=$?
   set -e
   if [ $rc -ne 0 ]; then

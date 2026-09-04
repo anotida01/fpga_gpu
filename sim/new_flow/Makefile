@@ -50,6 +50,5 @@ report_docs:
 clean:
 	rm -rf regression_logs/
 	rm -rf $(REG_RPRT_DIR)
-	rm -rf runs/
-	rm -rf xcelium.d/
-	rm -f xrun.log xrun.history
+	# Removing all untracked (incl. git-ignored) files
+	-git clean -fdx .
