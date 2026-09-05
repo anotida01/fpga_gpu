@@ -105,6 +105,23 @@ class gpu_base_test extends uvm_test;
   localparam int ROP_BUF_HEIGHT = 240;
   localparam int ROP_BUF_WORDS  = ROP_BUF_WIDTH * ROP_BUF_HEIGHT; // 76800 words
 
+  // --- Mesh file locator ----------------------------------------------------
+  // Resolve the mesh (.memh) file to seed the DUT-internal RAM.
+  //   +MEMH    -- mesh filename      (default: box.memh)
+  //   +MEMH_DIR-- directory holding it (abs path, set per-test in regression.vsif)
+  // Falls back to the CWD-relative "memh/box.memh" (manual flow symlinks it)
+  // when the plusargs are not supplied.
+  function automatic string get_mesh_file();
+    string dir, name;
+    if (!$value$plusargs("MEMH=%s", name)) begin
+      return "./memh/box.memh"; // Fallback if +MEMH=... is not specified
+    end
+    if ($value$plusargs("MEMH_DIR=%s", dir) && dir != "") begin
+      return {dir, "/", name};
+    end
+    return name;
+  endfunction
+
   // --- Done-Detection & Render Helpers (irq-line driven, no STATUS bus poll) --
   // Wait for the DUT's GPU done/irq line (dut.gpu0.irq_gpu) to assert, observed
   // directly via the irq_if probe. We intentionally do NOT poll STATUS over the

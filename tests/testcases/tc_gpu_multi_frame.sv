@@ -39,10 +39,9 @@ class tc_gpu_multi_frame extends gpu_base_test;
     do_reset(5);
 
     // 1. Seed the input mesh (once)
-    fd = $fopen("./memh/box.memh", "r");
-    if (fd == 0) begin
-      `uvm_fatal("OPEN_FAIL", "Failed to open ./memh/box.memh")
-    end
+    fd = $fopen(get_mesh_file(), "r");
+    if (fd == 0)
+      `uvm_fatal("OPEN_FAIL", $sformatf("Failed to open %s", get_mesh_file()))
     while (!$feof(fd)) begin
       int code = $fscanf(fd, "%h\n", val);
       if (code == 1) begin

@@ -132,12 +132,12 @@ group gpu {
     sv_seed: random;
   }
   test tc_gpu_sys_access_basic {
-    sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_sys_access_basic";
+    sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_sys_access_basic +MEMH='$ENV(MEMH_DIR)/box.memh'";
     count: 1;
     sv_seed: random;
   }
   test tc_gpu_multi_frame {
-    sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_multi_frame";
+    sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_multi_frame +MEMH='$ENV(MEMH_DIR)/box.memh'";
     count: 1;
     sv_seed: random;
   }
