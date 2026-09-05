@@ -42,10 +42,21 @@ module tb_gpu;
     .s00_axil_rready       (host_if.rready)
   );
 
+  // GPU done/interrupt probe. `irq` is a port input connected to the DUT-internal
+  // line dut.gpu0.irq_gpu (hierarchical name is legal at module scope; it is
+  // currently left unconnected at the axil_sys_top boundary -- no RTL change).
+  // The scoreboard watches irq_vif to keep its STATUS (reg1) reference model in
+  // step with the live DUT signal, and the base test waits on this line for
+  // done detection -- no host-bus STATUS polling needed.
+  irq_if irq_i(clk, dut.gpu0.irq_gpu);
+
   // UVM Config DB
   initial begin
     uvm_config_db#(virtual axi4lite_if)::set(null, "*.host_agent*", "vif", host_if);
     uvm_config_db#(virtual clk_rst_if)::set(null, "*", "vif", clk_rst_i);
+    // Publish the GPU done/irq probe to the scoreboard (env.scb) for STATUS
+    // mirroring & done detection.
+    uvm_config_db#(virtual irq_if)::set(null, "*", "irq_vif", irq_i);
     run_test();
   end
 

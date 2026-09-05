@@ -16,6 +16,7 @@ class gpu_scoreboard extends uvm_scoreboard;
   uvm_analysis_imp_host #(axi4lite_seq_item, gpu_scoreboard) host_export;
 
   axi4lite_mem_model mem_model; // reference for the RAM region (set by env)
+  virtual irq_if irq_vif;       // DUT's GPU done/irq line (dut.gpu0.irq_gpu), live DUT truth
 
   // --- Control register model (identical semantics to the axfe unit env) -------
   // The control reg file is axil_control.sv (register bits at 354-358):
@@ -49,8 +50,9 @@ class gpu_scoreboard extends uvm_scoreboard;
 
   int ctrl_write_count = 0;
   int ctrl_check_count = 0;
-  int ram_write_count  = 0;
-  int ram_check_count  = 0;
+  int ram_write_count  = 0; // host-bus RAM writes (e.g. mesh seeding)
+  int ram_check_count  = 0; // host-bus RAM reads (total)
+  int ram_unseeded     = 0; // RAM reads reported-only (GPU-written / not bus-seeded)
   int oob_count        = 0;
   int expected_ctrl_rd = -1; // -1 = unspecified, otherwise enforce exact count
   int expected_ctrl_wr = -1; // -1 = unspecified, otherwise enforce exact count
@@ -63,7 +65,16 @@ class gpu_scoreboard extends uvm_scoreboard;
     model_reset();
   endfunction
 
-  // --- Register-model event hooks (mirror axfe; for the future start/done tests)
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    // Fetch the DUT's GPU done/irq probe (tb drives it from dut.gpu0.irq_gpu).
+    // STATUS (reg1) bit0 is *live* DUT state; preferred as the scoreboard model
+    // as soon as this virtual-if is available.
+    if (!uvm_config_db#(virtual irq_if)::get(this, "", "irq_vif", irq_vif))
+      `uvm_warning("SCB_IRQ", "irq_vif not published; STATUS(reg1) will use the stored reg model")
+  endfunction
+
+  // --- Register-model event hooks (fallback when irq_vif is not provided) -----
   function void model_reset();
     for (int i = 0; i < NUM_REGS; i++) begin
       rm[i].is_live = (i == 1);
@@ -72,6 +83,9 @@ class gpu_scoreboard extends uvm_scoreboard;
     end
   endfunction
 
+  // Retained for API parity with the axfe unit env; the system scoreboard now
+  // prefers the live irq probe (irq_vif.irq) as the STATUS model, so these only
+  // matter if irq_vif was not published.
   function void report_gpu_done();
     rm[1].stored = 32'h1; // STATUS[0] reflects the latched gpu_done interrupt
   endfunction
@@ -80,9 +94,18 @@ class gpu_scoreboard extends uvm_scoreboard;
     rm[1].stored = 32'h0; // INT_CLR W1C deasserts intr_gen.irq_o
   endfunction
 
+  // Expected readback of control word `idx`.
+  // STATUS (reg1) bit0 is *live* DUT state: prefer the tb-probe irq_vif.irq
+  // (dut.gpu0.irq_gpu) as the authoritative model, falling back to the stored
+  // reg model when no probe was published. This keeps STATUS readback checks
+  // in step with the DUT by construction -- no stale-model mismatch, and no
+  // host-bus STATUS polling needed by the tests.
   function logic [31:0] expected_readback(int idx);
     if (idx < 0 || idx >= NUM_REGS) return 32'h0;
-    if (rm[idx].is_live) return {31'h0, rm[idx].stored[0]};
+    if (rm[idx].is_live) begin
+      if (irq_vif != null) return {31'h0, irq_vif.irq};
+      return {31'h0, rm[idx].stored[0]};
+    end
     return rm[idx].stored;
   endfunction
 
@@ -117,10 +140,12 @@ class gpu_scoreboard extends uvm_scoreboard;
         if (item.strb[b]) rm[idx].stored[b*8 +: 8] = item.data[b*8 +: 8];
       rm[idx].stored = rm[idx].stored & rm[idx].wmask;
       `uvm_info("SCB_CTRL", $sformatf("Write Reg[%0d] = %h (mask %h)", idx, rm[idx].stored, rm[idx].wmask), UVM_MEDIUM)
-      if (idx == 2) begin // INT_CLR: bit0 W1C clears the interrupt, then self-clears
-        if (item.data[0]) clear_gpu_done();
-        rm[idx].stored = 32'h0;
-      end
+       if (idx == 2) begin // INT_CLR: W1C. We do NOT model STATUS clearing here;
+         // the live irq probe (irq_vif.irq) is the authoritative STATUS model once
+         // the DUT's irq_gpu deasserts after intr_gen leaves the HOLD state.
+         // We only model the stored INT_CLR register's own self-clear (reg2 -> 0).
+         rm[idx].stored = 32'h0;
+       end
     end else begin
       logic [31:0] expected;
       if (idx >= NUM_REGS) begin
@@ -136,7 +161,7 @@ class gpu_scoreboard extends uvm_scoreboard;
         `uvm_error("SCB_CTRL", $sformatf("Mismatch at ctrl Reg[%0d] (0x%0h): Exp %h, Got %h",
                     idx, item.addr, expected, item.data))
       else
-        `uvm_info("SCB_CTRL", $sformatf("Match at ctrl Reg[%0d] (0x%0h): %h", idx, item.addr, item.data), UVM_MEDIUM)
+        `uvm_info("SCB_CTRL", $sformatf("Match at ctrl Reg[%0d] (0x%0h): %h", idx, item.addr, item.data), UVM_HIGH)
     end
   endfunction
 
@@ -151,7 +176,9 @@ class gpu_scoreboard extends uvm_scoreboard;
       if (item.resp !== RESP_OKAY)
         `uvm_error("SCB_RAM", $sformatf("RAM write to 0x%0h returned resp=%b, expected OKAY=%b",
                     item.addr, item.resp, RESP_OKAY))
-      `uvm_info("SCB_RAM", $sformatf("RAM Write 0x%0h = %h", item.addr, item.data), UVM_MEDIUM)
+      // Per-write trace suppressed (UVM_HIGH): a render seeds 272 words / reads tens
+      // of thousands; the counts are summarised in report_phase instead.
+      `uvm_info("SCB_RAM", $sformatf("RAM Write 0x%0h = %h", item.addr, item.data), UVM_HIGH)
     end else begin
       ram_check_count++;
       if (item.resp !== RESP_OKAY)
@@ -162,9 +189,12 @@ class gpu_scoreboard extends uvm_scoreboard;
           `uvm_error("SCB_RAM", $sformatf("RAM Mismatch at 0x%0h: Exp %h, Got %h",
                       item.addr, mem_model.read(item.addr), item.data))
         else
-          `uvm_info("SCB_RAM", $sformatf("RAM Match at 0x%0h: %h", item.addr, item.data), UVM_MEDIUM)
+          `uvm_info("SCB_RAM", $sformatf("RAM Match at 0x%0h: %h", item.addr, item.data), UVM_HIGH)
       end else begin
-        `uvm_info("SCB_RAM", $sformatf("RAM read at 0x%0h (unseeded, reported only): %h", item.addr, item.data), UVM_MEDIUM)
+        ram_unseeded++;
+        // GPU-written (unseeded) word: reported-only at UVM_HIGH (not a failure);
+        // aggregate count surfaces in the report_phase summary.
+        `uvm_info("SCB_RAM", $sformatf("RAM read at 0x%0h (unseeded, reported only): %h", item.addr, item.data), UVM_HIGH)
       end
     end
   endfunction
@@ -177,8 +207,10 @@ class gpu_scoreboard extends uvm_scoreboard;
   endfunction
 
   function void report_phase(uvm_phase phase);
-    `uvm_info("SCB_REPORT", $sformatf("=== Summary: CTRL Writes: %0d, CTRL Read-Checks: %0d, RAM Writes: %0d, RAM Read-Checks: %0d, OOR: %0d ===",
-                ctrl_write_count, ctrl_check_count, ram_write_count, ram_check_count, oob_count), UVM_LOW)
+    `uvm_info("SCB_REPORT", $sformatf(
+      "=== Summary: CTRL Writes: %0d, CTRL Read-Checks: %0d, OOR: %0d | RAM Writes: %0d, RAM Reads: %0d (unseeded/reported-only: %0d) ===",
+      ctrl_write_count, ctrl_check_count, oob_count,
+      ram_write_count, ram_check_count, ram_unseeded), UVM_LOW)
   endfunction
 
 endclass

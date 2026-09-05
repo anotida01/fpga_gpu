@@ -99,6 +99,47 @@ class gpu_base_test extends uvm_test;
   function void report_gpu_done(); env.scb.report_gpu_done(); endfunction
   function void clear_gpu_done();  env.scb.clear_gpu_done();  endfunction
 
+  // --- Framebuffer geometry (from c_model H_SIZE=320, V_SIZE=240; RTL depth.sv) ---
+  // One 32-bit word per pixel, row-major: loc = ROP_BUF_WIDTH * y + x.
+  localparam int ROP_BUF_WIDTH = 320;
+  localparam int ROP_BUF_HEIGHT = 240;
+  localparam int ROP_BUF_WORDS  = ROP_BUF_WIDTH * ROP_BUF_HEIGHT; // 76800 words
+
+  // --- Done-Detection & Render Helpers (irq-line driven, no STATUS bus poll) --
+  // Wait for the DUT's GPU done/irq line (dut.gpu0.irq_gpu) to assert, observed
+  // directly via the irq_if probe. We intentionally do NOT poll STATUS over the
+  // host bus -- the live irq line is the authoritative "done" signal, and the
+  // scoreboard reads it live for STATUS (reg1) expected values, so no spurious
+  // STATUS mismatch is raised. Timeout is generous (a full box render was
+  // ~4.4ms of sim time ~= 440k+ clocks in the last run).
+  task wait_gpu_done(int timeout_cycles = 10_000_000);
+    virtual irq_if vif = env.scb.irq_vif;
+    int elapsed = 0;
+    if (vif == null) begin
+      `uvm_fatal("NO_IRQ_IF", "env.scb.irq_vif is null; cannot wait for GPU done")
+    end
+    while (!vif.irq) begin
+      @(posedge vif.clk);
+      elapsed++;
+      if (elapsed > timeout_cycles) begin
+        `uvm_fatal("GPU_TIMEOUT", $sformatf("GPU did not assert irq (done) within %0d cycles", elapsed))
+      end
+    end
+  endtask
+
+  // Executes a complete render cycle:
+  // 1. Configure input/output memory offsets
+  // 2. Trigger start (CONTROL[0] = 1)
+  // 3. Wait for done via the live irq line (no bus polling)
+  // 4. Clear interrupt (INT_CLR[0] = 1)
+  task render_one_frame(logic [31:0] in_offset = 32'h0, logic [31:0] out_offset = 32'h0001_0000);
+    write_ctrl(REG_IN_MEM_OFF, in_offset);
+    write_ctrl(REG_OUT_MEM_OFF, out_offset);
+    write_ctrl(REG_CONTROL, 32'h1);
+    wait_gpu_done();
+    write_ctrl(REG_INT_CLR, 32'h1);
+  endtask
+
 endclass
 
 `endif

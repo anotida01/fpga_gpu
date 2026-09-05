@@ -131,4 +131,14 @@ group gpu {
     count: 1;
     sv_seed: random;
   }
+  test tc_gpu_sys_access_basic {
+    sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_sys_access_basic";
+    count: 1;
+    sv_seed: random;
+  }
+  test tc_gpu_multi_frame {
+    sim_args: "-r tb_gpu_snap +UVM_TESTNAME=tc_gpu_multi_frame";
+    count: 1;
+    sv_seed: random;
+  }
 }
