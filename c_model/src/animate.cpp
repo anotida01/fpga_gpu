@@ -11,15 +11,13 @@
 #include "transform.h"
 #include "animate.h"
 #include "algorithms.h"
+#include "cmodel_core.h"
 
 #define FALSE 0
 #define TRUE 1
 
 fixed ALPHA_X = (F)0, BETA_Y = (F)0, GAMMA_Z = (F)0;
 vertex XFORMED_LIGHT = LIGHT;
-
-int CCW;
-int TRI;
 
 
 void rotate_2d(vertex* v, fixed radians){

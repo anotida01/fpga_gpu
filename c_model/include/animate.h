@@ -21,8 +21,7 @@ extern vertex XFORMED_LIGHT;
 }
 #endif
 
-extern int CCW;
-extern int TRI;
+// TRI and CCW are now declared in cmodel_core.h (shared with cmodel_golden).
 
 #endif
 

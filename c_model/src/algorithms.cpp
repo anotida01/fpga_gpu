@@ -44,18 +44,18 @@ void _brens_line(int x1, int y1, int x2, int y2, int dx, int dy, int swap_xy, co
             //swap_xy value will decide to plot
             //either x1 or y1 in x's position
             if (swap_xy == 0)
-                ren_fb_write(x1, y1, &p);
+                fb_write(x1, y1, &p);
             else 
-                ren_fb_write(y1, x1, &p); //(y1,x1) is passed in xt
+                fb_write(y1, x1, &p); //(y1,x1) is passed in xt
 
             diff = diff + 2 * dy;
         }
         else {
             
             if (swap_xy == 0)
-                ren_fb_write(x1, y1, &p);
+                fb_write(x1, y1, &p);
             else
-                ren_fb_write(y1, x1, &p);
+                fb_write(y1, x1, &p);
             
             //checking either to decrement or increment x
             y1 < y2 ? y1++ : y1--;
@@ -219,7 +219,7 @@ void draw_triangle(triangle* t){
                     colour c; c.red=r; c.green=g; c.blue=b;
 
                     zb_write(i, j, (SF)z_depth);
-                    ren_fb_write(i, j, &c);
+                    fb_write(i, j, &c);
                     PIXEL_COUNT++;
                 }
 

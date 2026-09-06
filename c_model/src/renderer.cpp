@@ -10,6 +10,7 @@
 #include "transform.h"
 #include "algorithms.h"
 #include "animate.h"
+#include "cmodel_core.h"
 
 #define GUI_MODE_ROT_LIGHT 1
 #define GUI_MODE_ROT_OBJ 2
@@ -84,27 +85,13 @@ void ren_text_write(int x, int y, char* text){
 }
 
 
-// write pixel to framebuffer
-int ren_fb_write (float x, float y, colour *p){
-    int status = 1;
-
-    int conv_r = (int)((((float)p->red) + 1)*128);
-    int conv_g = (int)((((float)p->green) + 1)*128);
-    int conv_b = (int)((((float)p->blue) + 1)*128);
-
-    int xx = round(x), yy = round(y);
-
-    if ( (xx < H_SIZE) && (xx >= 0) && (yy < V_SIZE) && (yy >= 0) ){
-        status = 0;
-        // printf("Wrote to FRAMEBUFFER[%d][%d]. r=%d, g=%d, b=%d\n", xx, yy, conv_r, conv_g, conv_b);
-        FRAMEBUFFER[yy][xx] = *p;
-        gl_point(xx, yy, p);
-    }
-    else
-        printf("F_BUFFER: [%d][%d] is out of bounds!\n", xx, yy);
-    return status;
+// GL pixel hook: the shared pure fb_write (cmodel_core.cpp) writes the
+// pixel to FRAMEBUFFER; this hook additionally draws it into the GL canvas
+// so the display target's live animation keeps working.
+static int _gl_pixel_hook(int x, int y, const colour *p){
+    gl_point(x, y, (colour *)p);
+    return 0;
 }
-
 
 // clear framebuffer
 void ren_fb_clear(){
@@ -245,6 +232,9 @@ void start_renderer(int argc, char** argv){
 
     // setup GL canvas to match VGA Co-ord system
     gluOrtho2D(-10, H_SIZE+10, V_SIZE+10, -10);
+
+    // route the shared pure fb_write to also draw each pixel into the GL canvas
+    cmodel_set_pixel_hook(_gl_pixel_hook);
 
     glutMainLoop();
     

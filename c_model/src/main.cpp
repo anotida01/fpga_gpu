@@ -18,55 +18,12 @@
 #include "matrix.h"
 #include "transform.h"
 #include "mif.h"
+#include "cmodel_core.h"
 
 #include "animate.h"
 
-vertex LIGHT;
-std::vector<triangle>* OBJ;
-std::vector<triangle>* RASTER_SPACE_OBJ;
-fixed** PROJ_MAT;
-fixed** WRLD_TO_CAM_MAT;
-fixed** SCALE_TO_RAS_MAT;
-fixed** COMP_XFORM_MAT; // composite xform matrix. SCALE_TO_RAS_MAT * PROJ_MAT * WRLD_TO_CAM_MAT
-colour** FRAMEBUFFER;
-short_fixed** Z_BUFFER;
-
 inline fixed to_rad(float degrees) {
     return (F)(degrees * (M_PI / 180.0));
-}
-
-short_fixed zb_read(int x, int y){
-
-    // int xx = round(x), yy = round(y);
-    if ( (x < H_SIZE) && (x >= 0) && (y < V_SIZE) && (y >= 0) ){
-        return Z_BUFFER[y][x];
-    } else {
-        // printf("Z_BUFFER: [%d][%d] is out of bounds!\n", xx, yy);
-        return (SF)0;
-    }
-
-}
-
-
-void zb_write(int x, int y, short_fixed z_value){
-
-    // int xx = (int)fpm::round(x), yy = (int)fpm::round(y);
-    if ( (x < H_SIZE) && (x >= 0) && (y < V_SIZE) && (y >= 0) ){
-        Z_BUFFER[y][x] = z_value;
-        // std::cout << "Wrote Z Value:" << z_value << std::endl;  
-    } else {
-        // printf("Z_BUFFER: [%d][%d] is out of bounds!\n", xx, yy);
-        return;
-    }
-
-}
-
-
-// initialize Z Buffer to infinity
-void zb_init(short_fixed value){
-    for (size_t x = 0; x < H_SIZE; x++)
-        for (size_t y = 0; y < V_SIZE; y++)
-            Z_BUFFER[y][x] = value;
 }
 
 
