@@ -21,6 +21,7 @@ $PROJ_DIR/tests/testcases/tc_rop_basic.sv
 $PROJ_DIR/tests/testcases/tc_gpu_smoke_wr_rd.sv
 $PROJ_DIR/tests/testcases/tc_gpu_sys_access_basic.sv
 $PROJ_DIR/tests/testcases/tc_gpu_multi_frame.sv
+$PROJ_DIR/tests/testcases/tc_gpu_render_golden.sv
 #$PROJ_DIR/tests/testcases/tc_axilfe_error/tc_axilfe_error.sv
 #$PROJ_DIR/tests/testcases/tc_axil_sys_access/tc_axil_sys_access.sv
 #$PROJ_DIR/tests/testcases/tc_axil_slave/tc_axil_slave.sv

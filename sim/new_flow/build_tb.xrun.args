@@ -10,3 +10,12 @@
 -incdir $TESTS_DIR/envs/system/gpu
 -incdir $TESTS_DIR/vip/gpu_hs
 -incdir $TESTS_DIR/vip/clk_rst
+# C-model DPI-C shared library.
+# Loaded at sim time per Xcelium XRUN User Guide §"Loading Pre-Built Shared
+# Libraries (DPI Import)" — NOT listed in the .xrun.files compile-input list.
+# xrun resolves -sv_lib <name> to <sv_root>/<name>.so (no "lib" prefix
+# appended — confirmed by xmsim:W,NOLDPI on 2026-09-06 where -sv_lib
+# cmodel_golden looked for cmodel_golden.so and missed libcmodel_golden.so).
+# So the value must be the full lib-qualified name.
+-sv_root ${PROJ_DIR}c_model/build
+-sv_lib libcmodel_golden

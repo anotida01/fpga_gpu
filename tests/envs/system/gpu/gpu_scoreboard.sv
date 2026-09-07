@@ -57,6 +57,23 @@ class gpu_scoreboard extends uvm_scoreboard;
   int expected_ctrl_rd = -1; // -1 = unspecified, otherwise enforce exact count
   int expected_ctrl_wr = -1; // -1 = unspecified, otherwise enforce exact count
 
+  // --- C-model golden framebuffer sink (opt-in) --------------------------------
+  // Off by default so the existing ctrl smoke / sys_access / multi_frame tests
+  // (which never set this) keep their exact current report_phase output. A test
+  // publishes it via uvm_config_db#(bit) to enable the DPI-C golden path:
+  // cmodel_run(memh), then a per-pixel C4 compare of the DUT readback against
+  // cmodel_fb_pixel. The C-model is the reference: any out-of-tolerance pixel
+  // is treated as a candidate DUT defect.
+  bit          enable_cmodel_golden = 0; // knob, read in build_phase
+  bit          golden_checked  = 0;      // a golden run was attempted this test
+  bit          golden_pass     = 1;      // cleared on any per-pixel/C error
+  int unsigned golden_mismatch = 0;      // aggregate per-pixel mismatch count
+  int          golden_first_x  = -1;     // first mismatched pixel (x,y)
+  int          golden_first_y  = -1;
+  int unsigned golden_rc_err   = 0;      // cmodel_run() non-OK code (link/path)
+  localparam int GOLDEN_W = 320;         // ROP_BUF_WIDTH (gpu_base_test.sv)
+  localparam int GOLDEN_H = 240;         // ROP_BUF_HEIGHT
+
   `uvm_component_utils(gpu_scoreboard)
 
   function new(string name, uvm_component parent);
@@ -72,6 +89,10 @@ class gpu_scoreboard extends uvm_scoreboard;
     // as soon as this virtual-if is available.
     if (!uvm_config_db#(virtual irq_if)::get(this, "", "irq_vif", irq_vif))
       `uvm_warning("SCB_IRQ", "irq_vif not published; STATUS(reg1) will use the stored reg model")
+    // C-model golden sink is strictly opt-in; tests that keep the knob at its
+    // default of 0 see no DPI-C calls and no report_phase change.
+    uvm_config_db#(bit)::get(this, "", "enable_cmodel_golden", enable_cmodel_golden);
+    `uvm_info("SCB_GOLDEN", $sformatf("enable_cmodel_golden=%0b", enable_cmodel_golden), UVM_MEDIUM)
   endfunction
 
   // --- Register-model event hooks (fallback when irq_vif is not provided) -----
@@ -199,6 +220,103 @@ class gpu_scoreboard extends uvm_scoreboard;
     end
   endfunction
 
+  // --- C-model golden framebuffer sink ------------------------------------------
+  // Renders the given mesh in the C-model golden reference and compares the
+  // DUT readback (dut_fb[], one 32-bit word per pixel, row-major indexed
+  // [y*GOLDEN_W + x], as produced by the test's bus readback in the same shape
+  // as tc_gpu_multi_frame.sv:61-65) pixel-by-pixel against cmodel_fb_pixel().
+  //
+    // The C-model is the reference: a pixel beyond the C4 tolerance
+    // (|cc_dut - cc_cm| > 1, or a non-grey {cc,cc,cc} pattern) is a candidate DUT
+    // defect. We UVM_ERROR it and capture the DUT value in the message. We never
+    // relax the tolerance to force a pass.
+  //
+  // No-op (UVM_INFO + return) when enable_cmodel_golden is 0, so the existing
+  // tests are untouched. Must be called from a task context (it calls the
+  // DPI-C cmodel_run, which is a task in the DPI sense; safe in run_phase).
+  virtual task check_framebuffer_golden(input string memh,
+                                        input logic [31:0] dut_fb[]);
+    int unsigned rc, expected;
+    logic [14:0] dut15;
+    logic [4:0]  cc_dut, cc_cm;
+    int unsigned mismatch;
+    int          x, y;
+    int          reported;
+
+    golden_checked  = 1;
+    golden_pass     = 1;
+    golden_mismatch = 0;
+    golden_first_x  = -1;
+    golden_first_y  = -1;
+    golden_rc_err   = 0;
+
+    if (!enable_cmodel_golden) begin
+      `uvm_info("SCB_GOLDEN", "enable_cmodel_golden=0; golden framebuffer check skipped", UVM_MEDIUM)
+      return;
+    end
+
+    // DPI-C link gate: the shared library must actually have resolved before we
+    // trust any cmodel_* result (cmodel_version() == ABI major 1).
+    if (!gpu_cmodel_pkg::cmodel_version_ok()) begin
+      `uvm_fatal("SCB_GOLDEN", "cmodel_version_ok()=0; DPI-C link did not resolve")
+    end
+
+    // (a) Render the golden once. A non-OK code means the C model never
+    // rendered -- almost always a mesh path/CWD resolution issue or a link/state
+    // problem; report and stop (there is no valid golden to compare).
+    rc = gpu_cmodel_pkg::cmodel_run(memh);
+    if (rc != CMODEL_OK) begin
+      golden_pass   = 0;
+      golden_rc_err = rc;
+      `uvm_error("SCB_GOLDEN", $sformatf(
+                 "cmodel_run(%0s) returned error %0h (CMODEL_FILE_ERROR=%0h); no golden rendered -- check mesh path under xrun CWD",
+                 memh, rc, CMODEL_FILE_ERROR))
+      return;
+    end
+
+    // (b) Per-pixel C4 compare. 76800 single-pixel DPI calls -- no batch
+    // read is exposed by the C-model in this build.
+    mismatch = 0;
+    reported = 0;
+    for (y = 0; y < GOLDEN_H; y++) begin
+      for (x = 0; x < GOLDEN_W; x++) begin
+        expected = gpu_cmodel_pkg::cmodel_fb_pixel(x, y); // 15-bit {cc,cc,cc}
+        dut15    = dut_fb[y*GOLDEN_W + x][14:0];          // only [14:0] matters (C1)
+        cc_dut   = dut15[14:10];                          // top 5-bit channel
+        cc_cm    = expected[14:10];
+        // C4: |cc_dut - cc_cm| <= 1 AND the DUT word is grey {cc,cc,cc}.
+        begin
+          bit fail = 1'b0;
+          if ((dut15[14:10] != dut15[9:5]) || (dut15[9:5] != dut15[4:0]))
+            fail = 1'b1; // non-grey pattern
+          if (((cc_dut >= cc_cm) ? (cc_dut - cc_cm) : (cc_cm - cc_dut)) > 5'd1)
+            fail = 1'b1; // beyond 1-LSB grey tolerance
+          if (fail) begin
+            mismatch = mismatch + 1;
+            if (golden_first_x < 0) begin
+              golden_first_x = x;
+              golden_first_y = y;
+            end
+            if (reported < 5) begin
+              `uvm_error("SCB_GOLDEN", $sformatf(
+                         "GOLDEN MISMATCH at (%0d,%0d): Exp %h, Got %h (cc exp=%0d got=%0d)",
+                         x, y, expected, dut15, cc_cm, cc_dut))
+              reported = reported + 1;
+            end
+          end
+        end
+      end
+    end
+
+    if (mismatch > 0) begin
+      golden_pass = 0;
+      `uvm_error("SCB_GOLDEN", $sformatf(
+                 "%0d pixel(s) beyond C4 tolerance (first at (%0d,%0d))",
+                 mismatch, golden_first_x, golden_first_y))
+    end
+    golden_mismatch = mismatch;
+  endtask
+
   function void check_phase(uvm_phase phase);
     if (expected_ctrl_rd >= 0 && ctrl_check_count != expected_ctrl_rd)
       `uvm_error("SCB_CHECK", $sformatf("Expected %0d ctrl read checks, got %0d", expected_ctrl_rd, ctrl_check_count))
@@ -211,6 +329,20 @@ class gpu_scoreboard extends uvm_scoreboard;
       "=== Summary: CTRL Writes: %0d, CTRL Read-Checks: %0d, OOR: %0d | RAM Writes: %0d, RAM Reads: %0d (unseeded/reported-only: %0d) ===",
       ctrl_write_count, ctrl_check_count, oob_count,
       ram_write_count, ram_check_count, ram_unseeded), UVM_LOW)
+    // Golden summary: printed only when a golden run happened this
+    // test, so the existing tests (knob off) keep their exact output.
+    if (golden_checked) begin
+      if (golden_pass)
+        `uvm_info("SCB_REPORT", $sformatf(
+          "=== GOLDEN: PASS (0 mismatches, %0d words) ===", GOLDEN_W*GOLDEN_H), UVM_LOW)
+      else if (golden_rc_err != 0)
+        `uvm_error("SCB_REPORT", $sformatf(
+          "=== GOLDEN: FAIL (C-model render error %0h; 0 pixels compared) ===", golden_rc_err))
+      else
+        `uvm_error("SCB_REPORT", $sformatf(
+          "=== GOLDEN: FAIL (%0d mismatches, first at (%0d,%0d)) ===",
+          golden_mismatch, golden_first_x, golden_first_y))
+    end
   endfunction
 
 endclass
