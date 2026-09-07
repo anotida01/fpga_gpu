@@ -40,6 +40,7 @@ package gpu_cmodel_pkg;
   import "DPI-C" function int unsigned cmodel_reset ();
   import "DPI-C" function int unsigned cmodel_selftest ();
   import "DPI-C" function int unsigned cmodel_version ();
+  import "DPI-C" function int unsigned cmodel_save_image (input string img_path);
 
   // --- Wrapper tasks --------------------------------------------------------
 

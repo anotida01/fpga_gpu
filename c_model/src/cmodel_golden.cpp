@@ -19,11 +19,15 @@
 #include <cassert>
 #include <vector>
 
-#define CMODEL_OK            0
-#define CMODEL_OOM           1
-#define CMODEL_FILE_ERROR    2
-#define CMODEL_STATE_ERROR   3
-#define CMODEL_SELFTEST_NI   0x7001
+#ifdef CMODEL_HAVE_LIBPNG
+#include <png.h>
+#endif
+
+/* The return-code tokens (CMODEL_OK, CMODEL_OOM, CMODEL_FILE_ERROR,
+ * CMODEL_STATE_ERROR, CMODEL_SELFTEST_NI, CMODEL_FEATURE_UNAVAILABLE) come
+ * from cmodel_golden.h. Both C and C++ callers see the same values; this is
+ * the canonical source that DPI-C callers import. The previous per-translation-
+ * unit re-#define block was removed to avoid shadowing the enum. */
 
 cmodel_rc cmodel_init(int w, int h){
     (void)w; (void)h;
@@ -175,7 +179,6 @@ cmodel_rc cmodel_render(void){
 cmodel_rc cmodel_fb_pixel(int x, int y){
     if (x < 0 || x >= H_SIZE || y < 0 || y >= V_SIZE || !FRAMEBUFFER)
         return 0;
-    
 #ifndef NDEBUG
     const colour *px = &FRAMEBUFFER[y][x];
     int32_t r = px->red.raw_value();
@@ -184,9 +187,8 @@ cmodel_rc cmodel_fb_pixel(int x, int y){
     // shade_obj (obj.cpp:28-73) sets all three channels to the same dot; verify.
     assert(r == g && r == b);
 #endif
-    
     int32_t raw = FRAMEBUFFER[y][x].red.raw_value();
-    int32_t cc = (raw * 31) >> 14;
+    int32_t cc  = (raw * 31) >> 14;
     if (cc < 0) return 0;
     return (uint32_t)(cc << 10) | (uint32_t)(cc << 5) | (uint32_t)cc;
 }
@@ -220,6 +222,100 @@ cmodel_rc cmodel_reset(void){
     PIXEL_COUNT = 0;
     return CMODEL_OK;
 }
+
+/*
+ * cmodel_save_image — off-sim image capture.
+ *
+ * Emits a (H_SIZE x V_SIZE) PNG with the rendered framebuffer contents.
+ * The per-pixel computation is the EXACT same C1 formula used by
+ * cmodel_fb_pixel, then rescaled 5-bit -> 8-bit grey via cc*255/31 (matching
+ * render_gui.py --save's byte formula). Written as an RGB PNG (colortype 2)
+ * so the bytes are viewable in any standard decoder; the three channels are
+ * identical, so a grey interpretation matches what render_gui.py emits.
+ *
+ * Behaviour when built without libpng (CMODEL_HAVE_LIBPNG undefined):
+ * the function is still present in the .so (returns
+ * CMODEL_FEATURE_UNAVAILABLE = 0x7002), making the ABI stable across builds.
+ */
+#ifdef CMODEL_HAVE_LIBPNG
+
+/* C1 floor formula, shared with cmodel_fb_pixel for bit-exactness.
+ * Returns a clamped 0..31 5-bit grey channel. */
+static int32_t gray5_from_raw(int32_t raw) {
+    int32_t cc = (raw * 31) >> 14;
+    if (cc < 0) return 0;
+    if (cc > 31) return 31;
+    return cc;
+}
+
+cmodel_rc cmodel_save_image(const char *path) {
+    if (!path || !path[0])                    return CMODEL_FILE_ERROR;
+    if (!FRAMEBUFFER)                          return CMODEL_STATE_ERROR;
+
+    /* Allocate a single top-down RGB buffer (3 bytes per pixel). */
+    unsigned long  img_bytes = (unsigned long)H_SIZE * V_SIZE * 3;
+    unsigned char *row       = (unsigned char*)malloc(img_bytes);
+    if (!row)                                     return CMODEL_OOM;
+
+    for (int y = 0; y < V_SIZE; y++) {
+        unsigned char *dst = row + (size_t)y * H_SIZE * 3;
+        const colour *src  = &FRAMEBUFFER[y][0];
+        for (int x = 0; x < H_SIZE; x++) {
+            int32_t cc   = gray5_from_raw(src[x].red.raw_value());
+            uint8_t g8   = (uint8_t)((cc * 255) / 31);
+            dst[x * 3 + 0] = g8;
+            dst[x * 3 + 1] = g8;
+            dst[x * 3 + 2] = g8;
+        }
+    }
+
+    FILE *fp = fopen(path, "wb");
+    if (!fp) { free(row); return CMODEL_FILE_ERROR; }
+
+    png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+                                              NULL, NULL, NULL);
+    if (!png) { fclose(fp); free(row); return CMODEL_FILE_ERROR; }
+    png_infop info = png_create_info_struct(png);
+    if (!info) {
+        png_destroy_write_struct(&png, NULL);
+        fclose(fp); free(row);
+        return CMODEL_FILE_ERROR;
+    }
+    if (setjmp(png_jmpbuf(png))) {
+        png_destroy_write_struct(&png, &info);
+        fclose(fp); free(row);
+        return CMODEL_FILE_ERROR;
+    }
+
+    png_init_io(png, fp);
+    png_set_IHDR(png, info,
+                 H_SIZE, V_SIZE,
+                 8,                       /* bit depth */
+                 PNG_COLOR_TYPE_RGB,      /* 3 channels, identical */
+                 PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_DEFAULT,
+                 PNG_FILTER_TYPE_DEFAULT);
+    png_write_info(png, info);
+
+    /* Write the buffer row by row in top-down order. */
+    for (int y = 0; y < V_SIZE; y++)
+        png_write_row(png, row + (size_t)y * H_SIZE * 3);
+
+    png_write_end(png, info);
+    png_destroy_write_struct(&png, &info);
+    int rc = fclose(fp);
+    free(row);
+    return (rc == 0) ? CMODEL_OK : CMODEL_FILE_ERROR;
+}
+
+#else  /* !CMODEL_HAVE_LIBPNG — feature compiled out */
+
+cmodel_rc cmodel_save_image(const char *path) {
+    (void)path;
+    return CMODEL_FEATURE_UNAVAILABLE;
+}
+
+#endif  /* CMODEL_HAVE_LIBPNG */
 
 cmodel_rc cmodel_selftest(void){
     return CMODEL_SELFTEST_NI;

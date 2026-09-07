@@ -42,4 +42,20 @@ target_include_directories(cmodel_golden PRIVATE include/)
 target_link_libraries(cmodel_golden -lm)
 target_compile_options(cmodel_golden PRIVATE -O3)
 
+# libpng is OPTIONAL — only used by cmodel_save_image() for off-sim image
+# capture. find_package(...) is QUIET so a missing libpng still builds; the
+# cmodel_save_image symbol is ALWAYS present (when libpng is absent the
+# function simply returns CMODEL_FEATURE_UNAVAILABLE), so the ABI is stable
+# across host environments and Phase B's DPI-C import does not need to
+# feature-detect the symbol's presence.
+find_package(PNG QUIET)
+if(PNG_FOUND)
+    target_include_directories(cmodel_golden PRIVATE ${PNG_INCLUDE_DIRS})
+    target_link_libraries(cmodel_golden ${PNG_LIBRARIES})
+    target_compile_definitions(cmodel_golden PRIVATE CMODEL_HAVE_LIBPNG)
+    message(STATUS "cmodel_golden: libpng ENABLED  (${PNG_LIBRARIES}) — cmodel_save_image active")
+else()
+    message(STATUS "cmodel_golden: libpng MISSING — cmodel_save_image stub (returns CMODEL_FEATURE_UNAVAILABLE)")
+endif()
+
 
