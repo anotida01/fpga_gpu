@@ -184,19 +184,17 @@ constexpr inline fixed<B, I, F> abs(fixed<B, I, F> x) noexcept
 }
 
 template <typename B, typename I, unsigned int F>
-constexpr inline fixed<B, I, F> fmod(fixed<B, I, F> x, fixed<B, I, F> y) noexcept
+inline fixed<B, I, F> fmod(fixed<B, I, F> x, fixed<B, I, F> y) noexcept // Modified to work with g++ 4.8.5
 {
-    return
-        assert(y.raw_value() != 0),
-        fixed<B, I, F>::from_raw_value(x.raw_value() % y.raw_value());
+    assert(y.raw_value() != 0);
+    return fixed<B, I, F>::from_raw_value(x.raw_value() % y.raw_value());
 }
 
 template <typename B, typename I, unsigned int F>
-constexpr inline fixed<B, I, F> remainder(fixed<B, I, F> x, fixed<B, I, F> y) noexcept
+inline fixed<B, I, F> remainder(fixed<B, I, F> x, fixed<B, I, F> y) noexcept // Modified to work with g++ 4.8.5
 {
-    return
-        assert(y.raw_value() != 0),
-        x - nearbyint(x / y) * y;
+    assert(y.raw_value() != 0);
+    return x - nearbyint(x / y) * y;
 }
 
 template <typename B, typename I, unsigned int F>
@@ -213,11 +211,10 @@ inline fixed<B, I, F> remquo(fixed<B, I, F> x, fixed<B, I, F> y, int* quo) noexc
 //
 
 template <typename B, typename I, unsigned int F, typename C, typename J, unsigned int G>
-constexpr inline fixed<B, I, F> copysign(fixed<B, I, F> x, fixed<C, J, G> y) noexcept
+inline fixed<B, I, F> copysign(fixed<B, I, F> x, fixed<C, J, G> y) noexcept // Modified to work with g++ 4.8.5
 {
-    return
-        x = abs(x),
-        (y >= fixed<C, J, G>{0}) ? x : -x;
+    auto ax = abs(x);
+    return (y >= fixed<C, J, G>{0}) ? ax : -ax;
 }
 
 template <typename B, typename I, unsigned int F>
