@@ -94,6 +94,20 @@ class tc_gpu_render_golden extends gpu_base_test;
 
     gpu_cmodel_pkg::cmodel_save_image("model_box.png");
 
+    // Serialize the DUT's *actual readback* framebuffer (dut_fb[]) to a viewable
+    // PNG via the fbview library — the C-model's model_box.png above is the
+    // reference's own buffer, so this is the independent "what did the DUT
+    // produce" image. Unconditional (the framebuffer is always read back here);
+    // a non-OK rc is reported but does not abort (a no-libpng STUB build returns
+    // FBVIEW_FEATURE_UNAVAILABLE=0x7002).
+    st = gpu_fbview_pkg::fbview_save_dut("dut_box.png", dut_fb);
+    if (st != 0)
+      `uvm_error("GOLDEN_PNG", $sformatf(
+        "fbview_save_dut(dut_box.png) returned error %0h (FBVIEW_FEATURE_UNAVAILABLE=%0h => lib built without libpng)",
+        st, gpu_fbview_pkg::FBVIEW_FEATURE_UNAVAILABLE))
+    else
+      `uvm_info("GOLDEN_PNG", "fbview_save_dut: wrote dut_box.png (DUT readback framebuffer)", UVM_LOW)
+
     phase.drop_objection(this);
   endtask
 

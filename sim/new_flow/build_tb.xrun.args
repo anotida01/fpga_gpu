@@ -19,3 +19,8 @@
 # So the value must be the full lib-qualified name.
 -sv_root ${PROJ_DIR}c_model/build
 -sv_lib libcmodel_golden
+# fbview DPI-C shared library (fbview_save_png). Same -sv_root/-sv_lib idiom;
+# the file on disk is fbview/build/libfbview.so, so -sv_lib is the full
+# lib-qualified name (libfbview), resolved to <sv_root>/libfbview.so.
+-sv_root ${PROJ_DIR}fbview/build
+-sv_lib libfbview

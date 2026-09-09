@@ -3,6 +3,7 @@ package gpu_env_pkg;
   import axi4lite_pkg::*;
   import clk_rst_pkg::*;
   import gpu_cmodel_pkg::*;  // DPI-C golden sink (cmodel_run / cmodel_fb_pixel) used by gpu_scoreboard
+  import gpu_fbview_pkg::*;  // DPI-C framebuffer->PNG sink (fbview_save_dut) used by tc_gpu_render_golden
   `include "uvm_macros.svh"
 
   // --- Host-bus address map (as seen on axil_sys_top's exported s00 CPU port) --

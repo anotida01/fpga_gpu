@@ -25,6 +25,7 @@ $TESTS_DIR/envs/unit/rop/tb_rop.sv
 # gpu_cmodel_pkg must compile BEFORE gpu_env_pkg: gpu_env_pkg now imports it
 # (the scoreboard's C-model golden sink calls cmodel_run / cmodel_fb_pixel).
 $TESTS_DIR/envs/system/gpu/gpu_cmodel_pkg.sv
+$TESTS_DIR/envs/system/gpu/gpu_fbview_pkg.sv
 $TESTS_DIR/envs/system/gpu/gpu_env_pkg.sv
 $TESTS_DIR/envs/system/gpu/gpu_seq_pkg.sv
 $TESTS_DIR/envs/system/gpu/tb_gpu.sv
