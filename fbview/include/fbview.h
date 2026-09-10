@@ -95,7 +95,10 @@ fbview_rc fbview_save_png(const char *path, int w, int h,
  *   FBVIEW_OOM                      out of display handles for fbview_open.
  *   FBVIEW_STATE_ERROR              bad args (NULL out_handle, NULL data, bad
  *                                   fmt, w<=0, h<=0) or an unknown handle.
- *   FBVIEW_WINDOW_CLOSED            fbview_is_open: the user closed the window.
+ *   FBVIEW_WINDOW_CLOSED            live display: the user closed the window
+ *                                   (reported by fbview_is_open, and by
+ *                                   fbview_update / fbview_put_pixel on a
+ *                                   handle whose window has been closed).
  *   FBVIEW_FEATURE_UNAVAILABLE      shared lib was built WITHOUT SDL2.
  *
  * Thread safety: NOT thread-safe. The host drives all four from a single
@@ -113,6 +116,31 @@ fbview_rc fbview_is_open(uint32_t handle);
 
 /* Tear down the window/renderer/texture triple for `handle`. */
 fbview_rc fbview_close(uint32_t handle);
+
+/* Blit ONE pixel at (x, y) of the window referenced by `handle` (the window's
+ * open size from fbview_open), then present and pump events — so a user close
+ * (ESC / window-close button) is detected on the call that sees it. This is
+ * the per-pixel entry point for the sim-driven live push (each call is the
+ * moment the DUT drew that pixel; the display is paced by the raster itself,
+ * no host-side delay needed).
+ *
+ * `word` is the DUT's FULL 32-bit framebuffer word, passed verbatim (e.g.
+ * `int unsigned` from SystemVerilog). The C side takes `cc = word & 0x1F` and
+ * applies the ONE documented transform, g8 = (cc * 255) / 31, into one
+ * ARGB8888 pixel (R = G = B = g8, A = 0xFF) — the same single per-pixel formula
+ * used by fbview_save_png and by fbview_update for FBVIEW_FMT_15_GREY.
+ * No reordering, LUT, gamma or anything else.
+ *
+ * NOT thread-safe (same as the rest of the display half): the caller drives it
+ * from ONE thread (the sim event thread, or the host).
+ *
+ * Return codes:
+ *   FBVIEW_OK                       blited + presented.
+ *   FBVIEW_STATE_ERROR              `handle` unknown, or x < 0 || x >= w || y < 0 || y >= h.
+ *   FBVIEW_WINDOW_CLOSED            `handle` valid but the user closed the window.
+ *   FBVIEW_FEATURE_UNAVAILABLE      this build has no SDL2 backend (identical ABI).
+ */
+fbview_rc fbview_put_pixel(uint32_t handle, int x, int y, uint32_t word);
 
 #ifdef __cplusplus
 }

@@ -1,13 +1,13 @@
 /*
  * fbview_gui.cpp — live-GUI display symbols for the fbview shared library.
  *
- * Implements fbview_open / fbview_update / fbview_is_open / fbview_close
- * (see include/fbview.h for the contract, the documented per-pixel transform,
- * and the close/ESC semantics) on top of SDL2.
+ * Implements fbview_open / fbview_update / fbview_is_open / fbview_close /
+ * fbview_put_pixel (see include/fbview.h for the contract, the documented
+ * per-pixel transform, and the close/ESC semantics) on top of SDL2.
  *
  * Build modes:
  *   -FBVIEW_HAVE_SDL2  real SDL2 backend (window + renderer + streaming texture).
- *   default            stub: all four symbols still exported, each call returns
+ *   default            stub: all five symbols still exported, each call returns
  *                       FBVIEW_FEATURE_UNAVAILABLE (ABI is identical either way).
  *
  * SDL lifecycle (implementation detail, not ABI): the first fbview_open()
@@ -170,6 +170,34 @@ fbview_rc fbview_update(uint32_t handle, const uint16_t *data)
     return FBVIEW_OK;
 }
 
+/* Per-pixel blit (the sim-driven live-push entry point; see the header for the
+ * full contract). One 1x1 render fill + present; paced by the caller (the DUT's
+ * own raster rate when driven from the sim). */
+fbview_rc fbview_put_pixel(uint32_t handle, int x, int y, uint32_t word)
+{
+    if (handle < 1 || handle > FBVIEW_MAX_DISPLAYS)
+        return FBVIEW_STATE_ERROR;
+    fbview_gstate *gs = &g_state[handle-1];
+    fbview_pump_closed(gs);
+    if (!gs->open_flag)
+        return FBVIEW_WINDOW_CLOSED;   /* user closed it; caller stops pushing */
+    if (x < 0 || x >= gs->w || y < 0 || y >= gs->h)
+        return FBVIEW_STATE_ERROR;
+
+    /* Sole documented transform — same formula as fbview_update / fbview_save_png:
+     * cc = (word & 0x1F) on the DUT's full word, g8 = cc*255/31. */
+    const uint8_t g = (uint8_t)(((word & 0x1Fu) * 255u) / 31u);
+
+    SDL_SetRenderDrawColor(gs->ren, g, g, g, 0xFF);
+    SDL_Rect r = { x, y, 1, 1 };
+    if (SDL_RenderFillRect(gs->ren, &r) != 0) {
+        fprintf(stderr, "fbview: SDL_RenderFillRect failed: %s\n", SDL_GetError());
+        return FBVIEW_STATE_ERROR;
+    }
+    SDL_RenderPresent(gs->ren);
+    return FBVIEW_OK;
+}
+
 fbview_rc fbview_is_open(uint32_t handle)
 {
     if (handle < 1 || handle > FBVIEW_MAX_DISPLAYS)
@@ -201,7 +229,7 @@ fbview_rc fbview_close(uint32_t handle)
 
 #else  /* !FBVIEW_HAVE_SDL2 — ABI-stable stub (lib built without SDL2) */
 
-/* Same four symbols, all reporting the feature is unavailable in this build. */
+/* Same five symbols, all reporting the feature is unavailable in this build. */
 
 fbview_rc fbview_open(int w, int h, fbview_fmt fmt, uint32_t *out_handle)
 {
@@ -224,6 +252,12 @@ fbview_rc fbview_is_open(uint32_t handle)
 fbview_rc fbview_close(uint32_t handle)
 {
     (void)handle;
+    return FBVIEW_FEATURE_UNAVAILABLE;
+}
+
+fbview_rc fbview_put_pixel(uint32_t handle, int x, int y, uint32_t word)
+{
+    (void)handle; (void)x; (void)y; (void)word;
     return FBVIEW_FEATURE_UNAVAILABLE;
 }
 

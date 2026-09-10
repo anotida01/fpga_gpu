@@ -26,6 +26,9 @@ $TESTS_DIR/envs/unit/rop/tb_rop.sv
 # (the scoreboard's C-model golden sink calls cmodel_run / cmodel_fb_pixel).
 $TESTS_DIR/envs/system/gpu/gpu_cmodel_pkg.sv
 $TESTS_DIR/envs/system/gpu/gpu_fbview_pkg.sv
+# Live-display sink + passively-bound per-pixel tap (DPI-C into fbview's display half).
+$TESTS_DIR/envs/system/gpu/fbview_live_px_tap.sv
+$TESTS_DIR/envs/system/gpu/gpu_fbview_gui_pkg.sv
 $TESTS_DIR/envs/system/gpu/gpu_env_pkg.sv
 $TESTS_DIR/envs/system/gpu/gpu_seq_pkg.sv
 $TESTS_DIR/envs/system/gpu/tb_gpu.sv

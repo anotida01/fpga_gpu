@@ -50,6 +50,21 @@ module tb_gpu;
   // done detection -- no host-bus STATUS polling needed.
   irq_if irq_i(clk, dut.gpu0.irq_gpu);
 
+  // Live-display pixel tap: the SAME passive observer the live render test
+  // drains (fbview_live_px_pkg), capturing one pulse per pixel the DUT draws
+  // at axil_rop_backend's input-FIFO write boundary ({x,y,c} payload).
+  // Instantiated here at tb scope with a hierarchical read of DUT-internal
+  // signals — the same convention as the irq probe above, and the way this
+  // Xcelium (20.09) flow accepts the attach (a `bind` onto axil_rop_backend
+  // failed xmelab elaboration with *E,CUVMUR). Read-only inputs, no DUT
+  // signal driven, no RTL change; present in every tb_gpu test but purely
+  // observational (single DUT).
+  fbview_live_px_tap u_fbview_live_px_tap (
+    .clk      (clk),
+    .px_valid (dut.gpu0.axil_rop_backend_inst.infifo_winc),
+    .px_data  (dut.gpu0.axil_rop_backend_inst.infifo_wdata)
+  );
+
   // UVM Config DB
   initial begin
     uvm_config_db#(virtual axi4lite_if)::set(null, "*.host_agent*", "vif", host_if);
