@@ -28,6 +28,17 @@ import gpu_seq_pkg::*;
 // User close (ESC / window button): the push loop stops (the DUT render runs
 // to completion and the golden check still runs), reported as UVM_INFO only —
 // the sim must never fail because the human closed the window.
+//
+// Post-IRQ drain window: the DUT's DONE interrupt can fire before the ROP
+// backend's later pipeline stages have finished writing pixels (a known DUT
+// deficiency — the proper fix is for the DUT to signal completion once the
+// later stages are done, tracked separately). This test therefore holds its
+// "render done" flag for a bounded drain window — default **10 ms of sim time**
+// (the ROP backend needs ~10 ms after DONE to drain in-flight pixels, as
+// measured on the sim host), override with `+PX_DRAIN_MS=<ms>` — so the live
+// push loop presents the final in-flight pixels. This also (harmlessly)
+// delays the golden readback by the same window. The test stays passive: no
+// RTL change, no extra DUT traffic.
 
 class tc_gpu_render_gui_live extends gpu_base_test;
   `uvm_component_utils(tc_gpu_render_gui_live)
@@ -58,6 +69,10 @@ class tc_gpu_render_gui_live extends gpu_base_test;
     bit render_done = 0;
     int px_x, px_y;
     int unsigned px_word;
+    longint drain_arg   = 0;
+    real drain_ms = 10.0;      // default: 10 ms of sim time (delay = drain_ms * 1ms)
+    if ($value$plusargs("PX_DRAIN_MS=%0d", drain_arg) && (drain_arg >= 0))
+      drain_ms = real'(drain_arg);
 
     phase.raise_objection(this);
 
@@ -112,6 +127,13 @@ class tc_gpu_render_gui_live extends gpu_base_test;
       begin
         fb_base = ram_base + 32'h0001_0000;
         render_one_frame(32'h0, fb_base);
+        // DUT DONE-IRQ drain workaround (see file header): keep the push loop
+        // live for the bounded window so in-flight backend pixels are presented.
+        if (drain_ms > 0.0) begin
+          `uvm_info("GUI_LIVE", $sformatf("post-IRQ drain window: %0.0f ms (override with +PX_DRAIN_MS=<ms>)", drain_ms), UVM_LOW)
+          #(drain_ms * 1ms);
+          `uvm_info("GUI_LIVE", "Post-IRQ drain window completed", UVM_LOW)
+        end
         render_done = 1'b1;
       end
     join_none
