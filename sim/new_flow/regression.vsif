@@ -121,6 +121,26 @@ group rop {
   }
 }
 
+group rop_backend {
+  run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
+  scan_script: "vm_scan.pl ius.flt shell.flt";
+  dut_name: "rop_backend";
+
+  test tc_rop_backend_basic {
+    sim_args: "-r tb_rop_backend_snap +UVM_TESTNAME=tc_rop_backend_basic";
+    count: 1;
+    sv_seed: random;
+  }
+  // Same test with a non-zero byte-space frame-buffer base offset (drives the
+  // DUT's output_mem_offset_addr_i via the tb +MEM_OFFSET plusarg; the test's
+  // scoreboard mirror reads the same plusarg).
+  test tc_rop_backend_basic_offset {
+    sim_args: "-r tb_rop_backend_snap +UVM_TESTNAME=tc_rop_backend_basic +MEM_OFFSET=4096";
+    count: 1;
+    sv_seed: random;
+  }
+}
+
 group gpu {
   run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
   scan_script: "vm_scan.pl ius.flt shell.flt";
