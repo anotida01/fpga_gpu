@@ -36,7 +36,13 @@ enum {
 /* Input formats. v1 accepts exactly one (15-bit {cc,cc,cc} grey words in a
  * uint16_t[w*h] array). More formats (Q13.14 raw, 8-bit RGB, ...) can be added
  * as future extensions without breaking this ABI — consumers already switch on
- * `fmt` at call time. */
+ * `fmt` at call time.
+ *
+ * **RGB565 grey compatibility:** FBVIEW_FMT_15_GREY is bit-exactly compatible
+ * with 16-bit RGB565 grey words {L, {L, L[4]}, L} (locked colour contract) for
+ * the sole documented transform (word & 0x1F): bits [4:0] (Blue) hold the 5-bit
+ * intensity L in BOTH the legacy 15-bit {cc,cc,cc} pack and the RGB565 pack,
+ * so no separate format enum is needed for the RGB565 grey framebuffer. */
 typedef enum { FBVIEW_FMT_15_GREY = 0 } fbview_fmt;
 
 /*
@@ -47,6 +53,8 @@ typedef enum { FBVIEW_FMT_15_GREY = 0 } fbview_fmt;
  *     (bits [4:0]=R=cc, [9:5]=G=cc, [14:10]=B=cc) as emitted by the DUT's ROP
  *     backend and as read back by the UVM scoreboard.
  *     Per-pixel output formula: int32_t cc = (word & 0x1F); out = (uint8_t)(cc * 255 / 31).
+ *     (Bits [4:0] are the 5-bit grey intensity in both the legacy 15-bit {cc,cc,cc}
+ *     pack and the RGB565 grey pack {L, {L, L[4]}, L} — bit-identical decode.)
  *     The PNG is written as 8-bit RGB (colortype 2) with the three channels identical,
  *     top-down row-major, so the bytes are viewable in any standard viewer.
  *

@@ -176,6 +176,17 @@ cmodel_rc cmodel_render(void){
     return CMODEL_OK;
 }
 
+/* Locked colour contract: 5-bit grey intensity L for a Q13.14 shaded raw.
+ * Floor-scaled (raw*31)>>14 with saturating clamp into [0,31]:
+ * negative -> 0, > 31 -> 31 (white saturates, never wraps modulo 32).
+ * Shared by cmodel_fb_pixel / cmodel_fb_gray / cmodel_save_image for bit-exactness. */
+static inline int32_t clamp_gray5(int32_t raw) {
+    int32_t cc = (raw * 31) >> 14;
+    if (cc < 0)  return 0;
+    if (cc > 31) return 31;
+    return cc;
+}
+
 cmodel_rc cmodel_fb_pixel(int x, int y){
     if (x < 0 || x >= H_SIZE || y < 0 || y >= V_SIZE || !FRAMEBUFFER)
         return 0;
@@ -187,10 +198,18 @@ cmodel_rc cmodel_fb_pixel(int x, int y){
     // shade_obj (obj.cpp:28-73) sets all three channels to the same dot; verify.
     assert(r == g && r == b);
 #endif
-    int32_t raw = FRAMEBUFFER[y][x].red.raw_value();
-    int32_t cc  = (raw * 31) >> 14;
-    if (cc < 0) return 0;
-    return (uint32_t)(cc << 10) | (uint32_t)(cc << 5) | (uint32_t)cc;
+    /* 16-bit RGB565 grey: {L[4:0], G6[5:0], L[4:0]} with G6 = {L[4:0], L[4]}
+     * (standard MSB replication, green = 6-bit). L=31 -> 0xFFFF (pure white). */
+    uint32_t L  = (uint32_t)clamp_gray5(FRAMEBUFFER[y][x].red.raw_value());
+    uint32_t G6 = (L << 1) | (L >> 4);
+    return (L << 11) | (G6 << 5) | L;
+}
+
+cmodel_rc cmodel_fb_gray(int x, int y){
+    if (x < 0 || x >= H_SIZE || y < 0 || y >= V_SIZE || !FRAMEBUFFER)
+        return 0;
+    /* 5-bit grey intensity L in [0,31], format-agnostic. */
+    return (uint32_t)clamp_gray5(FRAMEBUFFER[y][x].red.raw_value());
 }
 
 cmodel_rc cmodel_z_pixel(int x, int y){
@@ -239,15 +258,6 @@ cmodel_rc cmodel_reset(void){
  */
 #ifdef CMODEL_HAVE_LIBPNG
 
-/* C1 floor formula, shared with cmodel_fb_pixel for bit-exactness.
- * Returns a clamped 0..31 5-bit grey channel. */
-static int32_t gray5_from_raw(int32_t raw) {
-    int32_t cc = (raw * 31) >> 14;
-    if (cc < 0) return 0;
-    if (cc > 31) return 31;
-    return cc;
-}
-
 cmodel_rc cmodel_save_image(const char *path) {
     if (!path || !path[0])                    return CMODEL_FILE_ERROR;
     if (!FRAMEBUFFER)                          return CMODEL_STATE_ERROR;
@@ -261,7 +271,7 @@ cmodel_rc cmodel_save_image(const char *path) {
         unsigned char *dst = row + (size_t)y * H_SIZE * 3;
         const colour *src  = &FRAMEBUFFER[y][0];
         for (int x = 0; x < H_SIZE; x++) {
-            int32_t cc   = gray5_from_raw(src[x].red.raw_value());
+            int32_t cc   = clamp_gray5(src[x].red.raw_value());
             uint8_t g8   = (uint8_t)((cc * 255) / 31);
             dst[x * 3 + 0] = g8;
             dst[x * 3 + 1] = g8;

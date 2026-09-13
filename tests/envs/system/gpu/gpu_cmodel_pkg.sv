@@ -1,6 +1,6 @@
 // gpu_cmodel_pkg.sv — DPI-C import package for the cmodel_golden shared library.
 //
-// SV-side package mirroring the 8
+// SV-side package mirroring the 9
 // C-ABI symbols in c_model/include/cmodel_golden.h so UVM code can call into
 // the C-model golden reference without the DPI-C keyword appearing anywhere
 // else in the repo.
@@ -31,11 +31,12 @@ package gpu_cmodel_pkg;
   localparam int unsigned CMODEL_STATE_ERROR   = 32'h3;
   localparam int unsigned CMODEL_SELFTEST_NI   = 32'h7001; // self-test golden not yet implemented
 
-  // --- DPI-C imports: 8 C-ABI symbols from cmodel_golden.h ------------------
+  // --- DPI-C imports: 9 C-ABI symbols from cmodel_golden.h ------------------
   import "DPI-C" function int unsigned cmodel_init (input int w, input int h);
   import "DPI-C" function int unsigned cmodel_load_mesh (input string memh_path);
   import "DPI-C" function int unsigned cmodel_render ();
   import "DPI-C" function int unsigned cmodel_fb_pixel (input int x, input int y);
+  import "DPI-C" function int unsigned cmodel_fb_gray (input int x, input int y);
   import "DPI-C" function int unsigned cmodel_z_pixel (input int x, input int y);
   import "DPI-C" function int unsigned cmodel_reset ();
   import "DPI-C" function int unsigned cmodel_selftest ();

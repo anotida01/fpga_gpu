@@ -42,9 +42,10 @@ fbview_rc fbview_save_png(const char *path, int w, int h,
             // Per-pixel output formula. The only transform the tool applies, and
             // it must stay bit-identical to the C-model PNG writer and to
             // render_gui.py's --save byte formula. We read the lowest 5-bit
-            // channel (& 0x1F), assuming the DUT word is {cc,cc,cc}. If the word
-            // is NOT grey, the tool still produces a well-defined output (the R
-            // channel); it does NOT attempt to detect or "fix" a non-grey word.
+            // channel (& 0x1F): bits [4:0] hold the 5-bit grey intensity L in both
+            // the legacy {cc,cc,cc} pack and the RGB565 grey pack {L, {L, L[4]}, L}.
+            // If the word is NOT grey, the tool still produces a well-defined output
+            // (the Blue channel); it does NOT attempt to detect or "fix" a non-grey word.
             int32_t cc = (int32_t)(src[x] & 0x1F);
             uint8_t g8 = (uint8_t)((cc * 255) / 31);
             dst[x * 3 + 0] = g8;

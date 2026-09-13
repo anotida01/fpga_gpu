@@ -9,8 +9,9 @@
 //    requires (board manual sec 4.2.1, Figure 19):
 //      * fixed-point coordinates (14 fractional bits): px = round(x_i / 2^14),
 //        py = round(y_i / 2^14)  (i.e. (x_i + 2^13) >>> 14)
-//      * grey intensity: c5     = ((c_i * 32'sd32768) >>> 28)[4:0]  (0 if c_i < 0)
-//                         color16 = {c5, c5, 1'b0, c5}             (16-bit RGB 5-6-5)
+//      * grey intensity (locked colour contract): L = floor(c_i * 31 / 2^14)
+//        with saturating clamp (c_i < 0 -> 0, scaled > 31 -> 31, never wraps)
+//                         color16 = {L, {L, L[4]}, L}          (16-bit RGB565; white 0xFFFF)
 //      * address: byte offset = {py[7:0], px[8:0], 1'b0} = 1024*py + 2*px
 //                          (row pitch 1024 B; ref points (1,0)->+0x02, (0,1)->+0x400)
 //      * half-word placement: even px -> low 16 bits + wstrb 4'b0011,
@@ -62,19 +63,23 @@ class rop_backend_scoreboard extends uvm_scoreboard;
                                                 logic signed [31:0] c_i);
     expected_tx_t tx;
     logic [31:0] px, py;
+    logic signed [63:0] c_raw;
     logic [4:0]  c5;
+    logic [5:0]  g6;
     logic [15:0] color16;
 
     // Coordinate normalization: round(x_i / 2^14), as (x_i + 2^13) >>> 14.
     px = (x_i + (32'd1 << 13)) >>> 14;
     py = (y_i + (32'd1 << 13)) >>> 14;
 
-    // Grey intensity to 5 bits: (c_i * 0x07C000) >>> 28, low 5 bits; clamp
-    // negative intensities to 0. The 16-bit RGB 5-6-5 pixel is grey
-    // {c5(R), c5(G low 5), 1'b0(G MSB), c5(B)}.
-    c5 = (c_i < 32'sd0) ? 5'd0
-                        : ((64'(c_i) * 64'sd32768) >>> 28) & 5'h1F;
-    color16 = {c5, c5, 1'b0, c5};
+    // Grey intensity to 5 bits (locked colour contract): floor(c_i * 31 / 2^14)
+    // with saturating clamp: negative -> 0, scaled > 31 -> 31 (full-scale
+    // white saturates; never wraps modulo 32).
+    c_raw = (64'(c_i) * 64'sd31) >>> 14;
+    c5    = (c_i < 32'sd0)  ? 5'd0
+             : ((c_raw > 64'sd31) ? 5'd31 : c_raw[4:0]);
+    g6    = {c5, c5[4]};
+    color16 = {c5, g6, c5};   // 16-bit RGB565 grey {L, {L, L[4]}, L}
 
     // Pixel half-word placement + DE1-SoC pixel buffer byte offset.
     if (px[0]) begin
@@ -84,7 +89,7 @@ class rop_backend_scoreboard extends uvm_scoreboard;
       tx.data = {16'h0, color16};
       tx.strb = 4'b0011;
     end
-    tx.addr = mem_offset + (32'(py[7:0]) << 10) + (32'(px[8:0]) << 1);
+    tx.addr = (mem_offset + (32'(py[7:0]) << 10) + (32'(px[8:0]) << 1)) & ~32'h3;
     return tx;
   endfunction
 

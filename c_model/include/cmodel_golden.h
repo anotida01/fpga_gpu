@@ -34,8 +34,16 @@ cmodel_rc cmodel_load_mesh(const char *memh_path);
 /* Run the pipeline: xform OBJ -> shade -> draw into FRAMEBUFFER + Z_BUFFER. */
 cmodel_rc cmodel_render(void);
 
-/* Return the 15-bit {cc,cc,cc} grey word for pixel (x,y). */
+/* Return the 16-bit RGB565 grey word for pixel (x,y), carried in [15:0]:
+ *     L  = saturating clamp of floor(raw*31/2^14) to [0,31] (Q13.14 shaded value);
+ *     G6 = {L[4:0], L[4]}   (standard MSB replication into the 6-bit green);
+ *     pixel16 = {L, G6, L}  ->  black 0x0000, white 0xFFFF.
+ * Supersedes the earlier 15-bit 5-5-5 {cc,cc,cc} packing. */
 cmodel_rc cmodel_fb_pixel(int x, int y);
+
+/* Return the 5-bit grey intensity L in [0,31] for pixel (x,y) — format-agnostic
+ * intensity query (same saturating clamp as cmodel_fb_pixel). */
+cmodel_rc cmodel_fb_gray(int x, int y);
 
 /* Return the raw 32-bit Q4.13 z-buffer value at (x,y). */
 cmodel_rc cmodel_z_pixel(int x, int y);

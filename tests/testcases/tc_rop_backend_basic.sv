@@ -9,10 +9,13 @@ import rop_backend_seq_pkg::*;
 `include "uvm_macros.svh"
 
 // Basic functionality test for the axil_rop_backend subsystem env:
-//  - directed pixels: screen origin, odd columns (upper word half / wstrb 0xC),
-//    row pitch (1024-byte rows), screen corner (319,239), a zero-clamp on
-//    negative intensity, a full-range intensity, and the coordinate rounding
-//    boundary at +/- 2^13 LSBs of the input fixed-point domain (Q0.14);
+//  - directed pixels using the canonical contract intensities (black 0x0000,
+//    quarter 0x39C7, half 0x7BCF, three-quarter 0xBDE7, white 0xFFFF),
+//    a zero-clamp on negative intensity, out-of-domain saturating-white
+//    probes (2.0 and 4.0 -> 0xFFFF), screen origin, odd columns (upper word
+//    half / wstrb 0xC), row pitch (1024-byte rows), screen corner (319,239),
+//    and the coordinate rounding boundary at +/- 2^13 LSBs of the input
+//    fixed-point domain (Q0.14);
 //  - a random in-screen pixel stream with inter-pixel gaps;
 //  - drain: every accepted pixel must produce exactly one matched AXI write
 //    (scoreboard: addr / data / wstrb / bresp OKAY), checked via wait_drain
@@ -44,28 +47,33 @@ class tc_rop_backend_basic extends rop_backend_base_test;
               env.scb.mem_offset)
 
     // --- 1. Directed pixels -----------------------------------------------------
-    // (a) Screen origin, mid-range intensity.
-    send_px(fq(0), fq(0), 32'sd32768);
-    // (b) Mid intensity at (5,3).
-    send_px(fq(5), fq(3), 32'sd4095);
-    // (c) SAME pixel with a negative intensity: color must clamp to 0.
+    // Canonical contract vectors (Q13.14 intensity -> expected pixel16):
+    //   0 (black, -27000 clamped) -> 0x0000   4096  (quarter)  -> 0x39C7
+    //   8192 (half)               -> 0x7BCF   12288 (3/4)     -> 0xBDE7
+    //   16384 (white)             -> 0xFFFF   32768 (2.0 OOD) -> 0xFFFF (saturated)
+    // (a) Screen origin, half intensity.
+    send_px(fq(0), fq(0), 32'sd8192);
+    // (b) Quarter intensity at (5,3).
+    send_px(fq(5), fq(3), 32'sd4096);
+    // (c) SAME pixel with a negative intensity: color must clamp to 0x0000.
     send_px(fq(5), fq(3), -32'sd27000);
-    // (d) SAME pixel with a full-range intensity (max grey).
-    send_px(fq(5), fq(3), 32'sd65535);
+    // (d) SAME pixel with full-scale intensity: pure white 0xFFFF.
+    send_px(fq(5), fq(3), 32'sd16384);
     // (e) Odd column -> upper half of the word, wstrb 0xC.
-    send_px(fq(1), fq(0), 32'sd4095);
+    send_px(fq(1), fq(0), 32'sd4096);
     // (f) Row pitch: (0,1) is one 1024-byte row below the origin pixel.
-    send_px(fq(0), fq(1), 32'sd4095);
+    send_px(fq(0), fq(1), 32'sd4096);
     // (g) Odd column in row 1 (both half-word and row pitch).
-    send_px(fq(1), fq(1), 32'sd4095);
-    // (h) Screen center.
-    send_px(fq(160), fq(120), 32'sd4095);
-    // (i) Screen corner (319,239) — max x (odd) and max y.
-    send_px(fq(319), fq(239), 32'sd65535);
+    send_px(fq(1), fq(1), 32'sd4096);
+    // (h) Screen center, three-quarter intensity.
+    send_px(fq(160), fq(120), 32'sd12288);
+    // (i) Screen corner (319,239) — max x (odd) and max y; out-of-domain
+    //     intensity 2.0 must saturate to 0xFFFF (no modulo wrap).
+    send_px(fq(319), fq(239), 32'sd32768);
     // (j) Rounding boundary, round-up: x_i = 16.5 * 2^14 -> pixel 17.
-    send_px(fq(16) + 16384, fq(20), 32'sd4095);
+    send_px(fq(16) + 16384, fq(20), 32'sd4096);
     // (k) Rounding boundary, round-down: x_i = 15.5 * 2^14 -> pixel 15.
-    send_px(fq(16) - 16384, fq(20), 32'sd4095);
+    send_px(fq(16) - 16384, fq(20), 32'sd4096);
 
     // --- 2. Random in-screen stream (with inter-pixel gaps) ---------------------
     `uvm_info("TC_RB", "Driving 64-pixel random stream...", UVM_LOW)

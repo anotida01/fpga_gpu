@@ -61,9 +61,9 @@ class gpu_scoreboard extends uvm_scoreboard;
   // Off by default so the existing ctrl smoke / sys_access / multi_frame tests
   // (which never set this) keep their exact current report_phase output. A test
   // publishes it via uvm_config_db#(bit) to enable the DPI-C golden path:
-  // cmodel_run(memh), then a per-pixel C4 compare of the DUT readback against
-  // cmodel_fb_pixel. The C-model is the reference: any out-of-tolerance pixel
-  // is treated as a candidate DUT defect.
+  // cmodel_run(memh), then a per-pixel compare of the DUT readback against
+  // cmodel_fb_pixel (16-bit RGB565 grey). The C-model is the reference: any
+  // out-of-tolerance pixel is treated as a candidate DUT defect.
   bit          enable_cmodel_golden = 0; // knob, read in build_phase
   bit          golden_checked  = 0;      // a golden run was attempted this test
   bit          golden_pass     = 1;      // cleared on any per-pixel/C error
@@ -224,12 +224,13 @@ class gpu_scoreboard extends uvm_scoreboard;
   // Renders the given mesh in the C-model golden reference and compares the
   // DUT readback (dut_fb[], one 32-bit word per pixel, row-major indexed
   // [y*GOLDEN_W + x], as produced by the test's bus readback in the same shape
-  // as tc_gpu_multi_frame.sv:61-65) pixel-by-pixel against cmodel_fb_pixel().
+  // as tc_gpu_multi_frame.sv:61-65) pixel-by-pixel against cmodel_fb_pixel()
+  // (16-bit RGB565 grey word).
   //
-    // The C-model is the reference: a pixel beyond the C4 tolerance
-    // (|cc_dut - cc_cm| > 1, or a non-grey {cc,cc,cc} pattern) is a candidate DUT
-    // defect. We UVM_ERROR it and capture the DUT value in the message. We never
-    // relax the tolerance to force a pass.
+    // The C-model is the reference: a pixel beyond the colour-contract tolerance
+    // (|L_dut - L_cm| > 1, or not RGB565 grey {L, {L, L[4]}, L}) is a candidate
+    // DUT defect. We UVM_ERROR it and capture the DUT value in the message. We
+    // never relax the tolerance to force a pass.
   //
   // No-op (UVM_INFO + return) when enable_cmodel_golden is 0, so the existing
   // tests are untouched. Must be called from a task context (it calls the
@@ -237,8 +238,9 @@ class gpu_scoreboard extends uvm_scoreboard;
   virtual task check_framebuffer_golden(input string memh,
                                         input logic [31:0] dut_fb[]);
     int unsigned rc, expected;
-    logic [14:0] dut15;
-    logic [4:0]  cc_dut, cc_cm;
+    logic [15:0] dut16;
+    logic [4:0]  r_dut, r_exp;
+    logic [5:0]  g_dut, b_dut;
     int unsigned mismatch;
     int          x, y;
     int          reported;
@@ -274,23 +276,25 @@ class gpu_scoreboard extends uvm_scoreboard;
       return;
     end
 
-    // (b) Per-pixel C4 compare. 76800 single-pixel DPI calls -- no batch
-    // read is exposed by the C-model in this build.
+    // (b) Per-pixel colour-contract compare. 76800 single-pixel DPI calls -- no
+    // batch read is exposed by the C-model in this build.
     mismatch = 0;
     reported = 0;
     for (y = 0; y < GOLDEN_H; y++) begin
       for (x = 0; x < GOLDEN_W; x++) begin
-        expected = gpu_cmodel_pkg::cmodel_fb_pixel(x, y); // 15-bit {cc,cc,cc}
-        dut15    = dut_fb[y*GOLDEN_W + x][14:0];          // only [14:0] matters (C1)
-        cc_dut   = dut15[14:10];                          // top 5-bit channel
-        cc_cm    = expected[14:10];
-        // C4: |cc_dut - cc_cm| <= 1 AND the DUT word is grey {cc,cc,cc}.
+        expected = gpu_cmodel_pkg::cmodel_fb_pixel(x, y); // 16-bit RGB565 word
+        dut16    = dut_fb[y*GOLDEN_W + x][15:0];          // only [15:0] matters (contract)
+        r_dut    = dut16[15:11];                          // 5-bit Red  = intensity L
+        g_dut    = dut16[10:5];                           // 6-bit Green (MSB-replicated L)
+        b_dut    = dut16[4:0];                            // 5-bit Blue
+        r_exp    = expected[15:11];
+        // Contract: RGB565 grey {L, {L, L[4]}, L}, |L_dut - L_exp| <= 1.
         begin
           bit fail = 1'b0;
-          if ((dut15[14:10] != dut15[9:5]) || (dut15[9:5] != dut15[4:0]))
-            fail = 1'b1; // non-grey pattern
-          if (((cc_dut >= cc_cm) ? (cc_dut - cc_cm) : (cc_cm - cc_dut)) > 5'd1)
-            fail = 1'b1; // beyond 1-LSB grey tolerance
+          if ((r_dut != b_dut) || (g_dut != {r_dut, r_dut[4]}))
+            fail = 1'b1; // non-RGB565-grey pattern / bad MSB replication
+          if (((r_dut >= r_exp) ? (r_dut - r_exp) : (r_exp - r_dut)) > 5'd1)
+            fail = 1'b1; // beyond 1-LSB intensity tolerance
           if (fail) begin
             mismatch = mismatch + 1;
             if (golden_first_x < 0) begin
@@ -299,8 +303,8 @@ class gpu_scoreboard extends uvm_scoreboard;
             end
             if (reported < 5) begin
               `uvm_error("SCB_GOLDEN", $sformatf(
-                         "GOLDEN MISMATCH at (%0d,%0d): Exp %h, Got %h (cc exp=%0d got=%0d)",
-                         x, y, expected, dut15, cc_cm, cc_dut))
+                         "GOLDEN MISMATCH at (%0d,%0d): Exp %h, Got %h (L exp=%0d got=%0d)",
+                         x, y, expected, dut16, r_exp, r_dut))
               reported = reported + 1;
             end
           end
@@ -311,7 +315,7 @@ class gpu_scoreboard extends uvm_scoreboard;
     if (mismatch > 0) begin
       golden_pass = 0;
       `uvm_error("SCB_GOLDEN", $sformatf(
-                 "%0d pixel(s) beyond C4 tolerance (first at (%0d,%0d))",
+                 "%0d pixel(s) beyond colour-contract tolerance (first at (%0d,%0d))",
                  mismatch, golden_first_x, golden_first_y))
     end
     golden_mismatch = mismatch;
