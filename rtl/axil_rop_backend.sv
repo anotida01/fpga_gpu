@@ -94,7 +94,16 @@ module axil_rop_backend #(
 
 
   assign reset_n = ~reset;
-  assign infifo_wdata = {rop_normalize_x, rop_normalize_y, rop_normalize_c};
+  // Zero-extend the normalized fields into the 32/32/32 FIFO word layout so no
+  // unconnected (X) bits reach the storage: x[8:0], y[7:0], c[14:0] in their
+  // documented bit ranges, upper bits explicitly 0. Slice to each field's valid
+  // width before concatenating — the intermediate nets are 32 bits, so using the
+  // whole net in the concat yields 160 bits and silently drops the x/y fields
+  // (96-bit net takes the low 96, x/y zero, c survives):
+  //   23 + 9 + 24 + 8 + 17 + 15 = 96 exactly.
+  assign infifo_wdata = {23'h0, rop_normalize_x[8:0],
+                         24'h0, rop_normalize_y[7:0],
+                         17'h0, rop_normalize_c[14:0]};
   assign infifo_wclk = clk;
   assign infifo_rclk = clk;
   assign infifo_wrst_n = reset_n;
@@ -121,7 +130,9 @@ module axil_rop_backend #(
 
   async_fifo #(
     .DSIZE(FIFO_DATA_WIDTH),
-    .ASIZE(INPUT_FIFO_DEPTH),
+    // ASIZE is the number of FIFO address bits (log2 of the word depth),
+    // not the depth itself: 32 words deep is 5 address bits.
+    .ASIZE(5),
     .FALLTHROUGH("FALSE")
   ) input_fifo (
     .wclk     (infifo_wclk),
@@ -272,8 +283,16 @@ module rop_normalize (
 
   assign c_inter = c_i * c;
   assign c_shift = c_inter >>> 28;
-  wire [4:0] cc = c_shift[4:0];
-  assign c_o = (c_i < 32'sd0) ? 15'd0 : {cc, cc, cc};
+
+  // 5-bit grey level with saturating clamp (locked colour contract):
+  //   c_i < 0        -> 0  (never negative)
+  //   scaled > 31    -> 31 (full-scale white saturates; never wraps modulo 32)
+  //   otherwise      -> scaled[4:0]
+  wire [4:0] cc = (c_i < 32'sd0)       ? 5'd0  :
+                  (c_shift > 64'sd31)  ? 5'd31 :
+                               c_shift[4:0];
+
+  assign c_o = {cc, cc, cc};
 
   localparam HALF = 32'd1 << 13;
   wire [31:0] x = (x_i + HALF) >>> 14;
@@ -479,12 +498,18 @@ module wb_write_master #(
   // DE1 SoC Computer Sys VGA controller colour format
   // MSB                             LSB
   // {Red (5 bits), Green (6 bits), Blue (5bits)}
+  // 16-bit RGB565 grey: {Red[4:0], Green[5:0], Blue[4:0]} with standard
+  // 5->6 bit MSB replication for the 6-bit Green channel: G6 = {L, L[4]}
+  // (L = 31 -> G6 = 63 -> pure white 0xFFFF)
   // assign colour_data_16b = {c_r[4:0], 1'b0, c_r[4:0], c_r[4:0]};
-  assign colour_data_16b = {c_r[4:0], c_r[4:0], 1'b0, c_r[4:0]};
+  assign colour_data_16b = {c_r[4:0], c_r[4:0], c_r[4], c_r[4:0]};
 
   // assign colour_data_16b = {5'b11111, 6'b0, 5'b0};
 
-  assign target_byte_address = {'0, y_r[7:0], x_r[8:0], 1'b0};
+  // Fully driven 32-bit byte address ({y[7:0], x[8:0], 1'b0} = 1024*Y + 2*X):
+  // explicit zero fill so the upper bits (and thus the Wishbone address) are
+  // never X.
+  assign target_byte_address = {14'h0, y_r[7:0], x_r[8:0], 1'b0};
   assign target_word_address = target_byte_address >> 2; // always 32b aligned
 
   assign wb_addr_o = target_word_address;
