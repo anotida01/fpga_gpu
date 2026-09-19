@@ -73,6 +73,7 @@ TEST_FILE="${TESTS_DIR}/testcases/${TEST_NAME}.sv"
 # Here we compile the testbench harness (VIP + UVM env + tb_<level>) and the
 # testcase fresh at run time, with the run top = tb_<level>.
 ln -sf "$(realpath "${SIM_DIR}/build_tb.xrun.args")" "${WORK_DIR}/"
+ln -sf "$(realpath "${SIM_DIR}/run_sim.xrun.args")" "${WORK_DIR}/"
 ln -sf "$(realpath "${TB_FILES}")" "${WORK_DIR}/"
 if [ -d "${TESTS_DIR}/testcases/memh" ]; then
   ln -sf "$(realpath "${TESTS_DIR}/testcases/memh")" "${WORK_DIR}/memh"
@@ -90,9 +91,9 @@ set +e
   echo "Executing simulation in ${WORK_DIR} (top: ${TOP_MODULE})..."
   TB_RUN_FILE="build_tb.xrun.files"
   if [ -f "${TEST_FILE}" ]; then
-    xrun -f build_tb.xrun.args -f "${TB_RUN_FILE}" "${TEST_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
+    xrun -f build_tb.xrun.args -f run_sim.xrun.args -f "${TB_RUN_FILE}" "${TEST_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
   else
-    xrun -f build_tb.xrun.args -f "${TB_RUN_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
+    xrun -f build_tb.xrun.args -f run_sim.xrun.args -f "${TB_RUN_FILE}" -top "${TOP_MODULE}" -snapshot "${SNAPSHOT}" +UVM_TESTNAME="${TEST_NAME}" ${SIM_OPTS}
   fi
 )
 EXIT_CODE=$?

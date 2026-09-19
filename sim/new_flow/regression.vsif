@@ -1,6 +1,7 @@
 session fpga_gpu_regr {
   top_dir: $ENV(REGRESSION_AREA);
   hdl_files: "$ENV(SIM_DIR)/build_dut.xrun.args $ENV(SIM_DIR)/build_dut.xrun.files $ENV(SIM_DIR)/build_tb.xrun.args $ENV(SIM_DIR)/build_tb.xrun.files $ENV(TESTS_DIR)/testcases/testcases.f";
+  top_files: "$ENV(SIM_DIR)/run_sim.xrun.args";
   pre_session_script: "$ENV(SIM_DIR)/vmgr_do_build.sh";
   output_mode: terminal;
   drm: parallel_local;

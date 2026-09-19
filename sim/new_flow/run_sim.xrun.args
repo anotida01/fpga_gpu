@@ -1,0 +1,6 @@
+# C-model DPI-C shared library.
+-sv_root ${PROJ_DIR}/c_model/build
+-sv_lib libcmodel_golden
+# fbview DPI-C shared library (fbview_save_png)
+-sv_root ${PROJ_DIR}/fbview/build
+-sv_lib libfbview
