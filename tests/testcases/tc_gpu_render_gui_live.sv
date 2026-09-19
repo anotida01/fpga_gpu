@@ -162,10 +162,18 @@ class tc_gpu_render_gui_live extends gpu_base_test;
       `uvm_error("GUI_LIVE", $sformatf("%0d fbview calls returned an unexpected rc", n_unexpected))
 
     // --- readback + golden check (identical pattern to tc_gpu_render_golden) --
+    // The DUT's real pixel format (DE1-SoC pixel buffer, board manual sec 4.2.1;
+    // as the DUT writes it — byte addr = 1024*Y + 2*X, pitch 1024 B:
+    //   320 pixels/row x 2 B = 640 B = **160 pixel-words/row** (words 160..255
+    //   of each pitch are unwritten stride padding), TWO 16-bit pixels per word
+    //   (even X in [15:0], odd X in [31:16]), each pixel 16 bits into [15:0]).
     fb_base = ram_base + 32'h0001_0000;
-    for (int i = 0; i < ROP_BUF_WORDS; i++) begin
-      read_reg(fb_base + (i * 4));
-      dut_fb[i] = last_rdata;
+    for (int y = 0; y < ROP_BUF_HEIGHT; y++) begin
+      for (int w = 0; w < 160; w++) begin
+        read_reg(fb_base + (4 * (256 * y + w)));
+        dut_fb[y*320 + 2*w]     = {16'b0, last_rdata[15:0]};   // even X: low half
+        dut_fb[y*320 + 2*w + 1] = {16'b0, last_rdata[31:16]};  // odd X: high half
+      end
     end
 
     // Scoreboard golden sink: cmodel_run(memh) + the full pixel compare; the

@@ -227,7 +227,7 @@ module axil_sys_top #(
   ) axil_ram0 (
     .clk              (clk),
     .rst              (reset),
-    .s_axil_awaddr    (ram_axil_awaddr[15:0]),
+    .s_axil_awaddr    (ram_axil_awaddr[25:0]),
     .s_axil_awprot    (ram_axil_awprot),
     .s_axil_awvalid   (ram_axil_awvalid),
     .s_axil_awready   (ram_axil_awready),
@@ -238,7 +238,7 @@ module axil_sys_top #(
     .s_axil_bresp     (ram_axil_bresp),
     .s_axil_bvalid    (ram_axil_bvalid),
     .s_axil_bready    (ram_axil_bready),
-    .s_axil_araddr    (ram_axil_araddr[15:0]),
+    .s_axil_araddr    (ram_axil_araddr[25:0]),
     .s_axil_arprot    (ram_axil_arprot),
     .s_axil_arvalid   (ram_axil_arvalid),
     .s_axil_arready   (ram_axil_arready),

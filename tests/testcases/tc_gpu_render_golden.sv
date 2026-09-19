@@ -80,11 +80,34 @@ class tc_gpu_render_golden extends gpu_base_test;
     fb_base = ram_base + 32'h0001_0000;
     render_one_frame(32'h0, fb_base);
 
-    // Read the ENTIRE framebuffer back over the host bus (exact
-    // tc_gpu_multi_frame.sv:61-65 pattern).
-    for (int i = 0; i < ROP_BUF_WORDS; i++) begin
-      read_reg(fb_base + (i * 4));
-      dut_fb[i] = last_rdata;
+    // --- [CANDIDATE DUT BUG] done/irq asserts before the pipeline drains ----
+    // The DUT raises the done/irq line as soon as the front-end has consumed
+    // the last input vertex, but at that instant there are still rasterised
+    // pixels in flight further down the pipeline (rasterizer -> ROP -> write
+    // backend). A readback taken immediately after the interrupt therefore
+    // captures an incomplete frame (trailing pixels still 0 / stale). This is
+    // a candidate DUT bug, flagged below; the test-side workaround for now is
+    // a safe 5 ms (sim time) drain delay inserted after the interrupt.
+    `uvm_error("DUT_INTR_EARLY", "CANDIDATE DUT BUG: done/irq asserted when the front-end consumed the last vertex while pixels were still in flight downstream; the frame was not fully written when the interrupt fired (early readback shows unwritten/stale trailing pixels)")
+    `uvm_error("DUT_INTR_EARLY", "DUT should be able to monitor the progress of ALL pipeline stages and flag the done interrupt only when no pixels remain in flight; until that DUT fix lands the test inserts a safe 5 ms drain delay after the interrupt as a workaround")
+    // Safe drain delay: 5 ms of sim time is far longer than the pipeline
+    // flush latency, guaranteeing all in-flight pixels have been written.
+    #(5ms)
+
+    // Read the ENTIRE framebuffer back over the host bus and unpack the DUT's
+    // real pixel format (DE1-SoC pixel buffer, board manual sec 4.2.1; as the
+    // DUT actually writes it — byte addr = 1024*Y + 2*X, pitch 1024 B):
+    //   320 pixels/row x 2 B = 640 B of pixel data = **160 32-bit pixel-words/row**
+    //   (words 160..255 of each pitch are unwritten stride padding),
+    //   TWO 16-bit pixels per 32-bit word: even X in [15:0], odd X in [31:16].
+    // Each pixel's 16 bits land in [15:0] of its dut_fb[] slot so the golden
+    // sink and the fbview PNG sink consume it directly.
+    for (int y = 0; y < ROP_BUF_HEIGHT; y++) begin
+      for (int w = 0; w < 160; w++) begin
+        read_reg(fb_base + (4 * (256 * y + w)));
+        dut_fb[y*320 + 2*w]     = {16'b0, last_rdata[15:0]};   // even X: low half
+        dut_fb[y*320 + 2*w + 1] = {16'b0, last_rdata[31:16]};  // odd X: high half
+      end
     end
 
     // Hand to the scoreboard golden sink -- runs cmodel_run(memh) once and
