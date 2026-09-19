@@ -24,6 +24,7 @@ package axfe_seq_pkg;
     // existing test references resp, so behavior is unchanged for them.
     logic [1:0] resp;
     `uvm_object_utils(axfe_axil_write_seq)
+    function new(string name = "axfe_axil_write_seq"); super.new(name); endfunction
     task body();
       axi4lite_seq_item item = axi4lite_seq_item::type_id::create("item");
       start_item(item);
@@ -43,6 +44,7 @@ package axfe_seq_pkg;
     logic [31:0] addr;
     logic [2:0]  prot = 3'h0;   // axi4-lite prot field (default = 0)
     `uvm_object_utils(axfe_axil_read_seq)
+    function new(string name = "axfe_axil_read_seq"); super.new(name); endfunction
     task body();
       axi4lite_seq_item item = axi4lite_seq_item::type_id::create("item");
       start_item(item);
@@ -56,6 +58,7 @@ package axfe_seq_pkg;
   class axfe_dma_req_seq extends axfe_base_seq;
     logic [31:0] addr;
     `uvm_object_utils(axfe_dma_req_seq)
+    function new(string name = "axfe_dma_req_seq"); super.new(name); endfunction
     task body();
       pipe_item item = pipe_item::type_id::create("item");
       start_item(item);

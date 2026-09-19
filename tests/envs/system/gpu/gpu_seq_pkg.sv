@@ -19,6 +19,7 @@ package gpu_seq_pkg;
     logic [2:0]  prot = 3'h0;
     logic [1:0]  resp;
     `uvm_object_utils(gpu_axil_write_seq)
+    function new(string name = "gpu_axil_write_seq"); super.new(name); endfunction
     task body();
       axi4lite_seq_item item = axi4lite_seq_item::type_id::create("item");
       start_item(item);
@@ -42,6 +43,7 @@ package gpu_seq_pkg;
     logic [31:0] data;
     logic [1:0]  resp;
     `uvm_object_utils(gpu_axil_read_seq)
+    function new(string name = "gpu_axil_read_seq"); super.new(name); endfunction
     task body();
       axi4lite_seq_item item = axi4lite_seq_item::type_id::create("item");
       start_item(item);

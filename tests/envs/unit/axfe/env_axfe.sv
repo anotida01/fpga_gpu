@@ -25,10 +25,10 @@ class env_axfe extends uvm_env;
     mstr_agent = axi4lite_agent::type_id::create("mstr_agent", this);
     mstr_agent.is_master = 0; // Slave/Responder
     
-    dma_req_agent = pipe_agent::type_id::create("dma_req_agent", this);
+    dma_req_agent = pipe_agent#(.DATA_W(32))::type_id::create("dma_req_agent", this);
     dma_req_agent.is_responder = 0; // Drives req
     
-    dma_rsp_agent = pipe_agent::type_id::create("dma_rsp_agent", this);
+    dma_rsp_agent = pipe_agent#(.DATA_W(32))::type_id::create("dma_rsp_agent", this);
     dma_rsp_agent.is_responder = 1; // Samples resp, drives ready
     
     clk = clk_rst_ctrl::type_id::create("clk", this);
