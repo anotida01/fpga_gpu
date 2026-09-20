@@ -47,16 +47,16 @@ class tc_gpu_sys_access_basic extends gpu_base_test;
     while (!$feof(fd)) begin
       int code = $fscanf(fd, "%h\n", val);
       if (code == 1) begin
-        write_reg(ram_base + (word_count * 4), val);
+        write_reg(ram_base + MESH_SEED_BYTE_OFF + (word_count * 4), val);
         word_count++;
       end
     end
     $fclose(fd);
-    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base), UVM_LOW)
+    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base + MESH_SEED_BYTE_OFF), UVM_LOW)
 
     // 2, 3. Render one full frame (start -> live-irq done -> clear)
     `uvm_info("TC_GPU", "Triggering GPU render...", UVM_LOW)
-    render_one_frame(32'h0, 32'h0001_0000);
+    render_one_frame(MESH_SEED_WORD_OFF, 32'h0001_0000);
     `uvm_info("TC_GPU", "Render complete (irq observed); interrupt cleared.", UVM_LOW)
 
     // 4. Read back the ENTIRE framebuffer and verify it was painted.

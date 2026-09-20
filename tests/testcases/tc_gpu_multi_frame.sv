@@ -45,19 +45,19 @@ class tc_gpu_multi_frame extends gpu_base_test;
     while (!$feof(fd)) begin
       int code = $fscanf(fd, "%h\n", val);
       if (code == 1) begin
-        write_reg(ram_base + (word_count * 4), val);
+        write_reg(ram_base + MESH_SEED_BYTE_OFF + (word_count * 4), val);
         word_count++;
       end
     end
     $fclose(fd);
-    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base), UVM_LOW)
+    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base + MESH_SEED_BYTE_OFF), UVM_LOW)
 
     // 2. Render N frames to distinct bases; capture the ENTIRE framebuffer each time
     for (int f = 0; f < NUM_FRAMES; f++) begin
       fb_base[f] = ram_base + 32'h0001_0000 + (f * FB_STRIDE);
       `uvm_info("TC_GPU", $sformatf("Frame %0d/%0d  fb_base=0x%08h  rendering...",
                f + 1, NUM_FRAMES, fb_base[f]), UVM_LOW)
-      render_one_frame(32'h0, fb_base[f]);
+      render_one_frame(MESH_SEED_WORD_OFF, fb_base[f]);
       for (int i = 0; i < ROP_BUF_WORDS; i++) begin
         read_reg(fb_base[f] + (i * 4));
         frame[f][i] = last_rdata;

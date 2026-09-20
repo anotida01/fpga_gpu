@@ -69,16 +69,17 @@ class tc_gpu_render_golden extends gpu_base_test;
     while (!$feof(fd)) begin
       int code = $fscanf(fd, "%h\n", val);
       if (code == 1) begin
-        write_reg(ram_base + (word_count * 4), val);
+        write_reg(ram_base + MESH_SEED_BYTE_OFF + (word_count * 4), val);
         word_count++;
       end
     end
     $fclose(fd);
-    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base), UVM_LOW)
+    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base + MESH_SEED_BYTE_OFF), UVM_LOW)
 
-    // Render one frame to the default OUT_MEM_OFF base (render_one_frame).
+    // Render one frame to the default OUT_MEM_OFF base (render_one_frame);
+    // the mesh is read from MESH_SEED_WORD_OFF (see the shared-RAM plan).
     fb_base = ram_base + 32'h0001_0000;
-    render_one_frame(32'h0, fb_base);
+    render_one_frame(MESH_SEED_WORD_OFF, fb_base);
 
     // --- [CANDIDATE DUT BUG] done/irq asserts before the pipeline drains ----
     // The DUT raises the done/irq line as soon as the front-end has consumed

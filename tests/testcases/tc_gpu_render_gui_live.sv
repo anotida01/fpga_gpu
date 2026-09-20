@@ -96,12 +96,12 @@ class tc_gpu_render_gui_live extends gpu_base_test;
     while (!$feof(fd)) begin
       int code = $fscanf(fd, "%h\n", val);
       if (code == 1) begin
-        write_reg(ram_base + (word_count * 4), val);
+        write_reg(ram_base + MESH_SEED_BYTE_OFF + (word_count * 4), val);
         word_count++;
       end
     end
     $fclose(fd);
-    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base), UVM_LOW)
+    `uvm_info("TC_GPU", $sformatf("Seeded %0d mesh words at 0x%08h", word_count, ram_base + MESH_SEED_BYTE_OFF), UVM_LOW)
 
     // --- open the live window (SDL2-optional) -----------------------------
     have_win = 0;
@@ -126,7 +126,7 @@ class tc_gpu_render_gui_live extends gpu_base_test;
     fork
       begin
         fb_base = ram_base + 32'h0001_0000;
-        render_one_frame(32'h0, fb_base);
+        render_one_frame(MESH_SEED_WORD_OFF, fb_base);
         // DUT DONE-IRQ drain workaround (see file header): keep the push loop
         // live for the bounded window so in-flight backend pixels are presented.
         if (drain_ms > 0.0) begin

@@ -4,9 +4,9 @@
 // System-level scoreboard for env_gpu. It observes the single host AXI4-Lite
 // stream (the s00 CPU port of axil_sys_top) and routes each transaction to the
 // reference model selected by the host-bus address map:
-//   - control region (0x0100_0000-0x01FF_FFFF) -> the 5-register model below,
+//   - control region (0x0400_0000-0x04FF_FFFF) -> the 5-register model below,
 //     mirroring the axfe unit scoreboard's proven register semantics.
-//   - RAM region     (0x0000_0000-0x00FF_FFFF)  -> the shared axi4lite_mem_model
+//   - RAM region     (0x0000_0000-0x03FF_FFFF)  -> the shared axi4lite_mem_model
 //     (reference model of the DUT-internal axil_ram0, as seen from the host).
 // This keeps the scoreboard forward-compatible with the future mesh-seeding and
 // c_model golden-framebuffer tests (which will exercise the RAM region) without
@@ -38,7 +38,7 @@ class gpu_scoreboard extends uvm_scoreboard;
 
   // Region decode on the host bus (see gpu_env_pkg address-map constants).
   function bit in_ram_region (input logic [31:0] addr);
-    return (addr < GPU_CTRL_BASE);
+    return (addr >= GPU_RAM_BASE) && (addr < GPU_RAM_SIZE);
   endfunction
   function bit in_ctrl_region(input logic [31:0] addr);
     return (addr >= GPU_CTRL_BASE) && (addr < (GPU_CTRL_BASE + 32'h0100_0000));
@@ -56,6 +56,19 @@ class gpu_scoreboard extends uvm_scoreboard;
   int oob_count        = 0;
   int expected_ctrl_rd = -1; // -1 = unspecified, otherwise enforce exact count
   int expected_ctrl_wr = -1; // -1 = unspecified, otherwise enforce exact count
+
+  // --- Host-seeded RAM span (overlap guard state) -------------------------------
+  // The DUT never clears the framebuffer: the host owns RAM contents, so a
+  // framebuffer region that aliases host-seeded data would read the seed data
+  // back as spurious background pixels. The guard in handle_ctrl() flags that
+  // at render START. The span covers every byte written to the RAM region on
+  // the host bus; cleared in model_reset() (do_reset calls it before seeding).
+  logic [31:0] ram_seed_min;
+  logic [31:0] ram_seed_max;
+  bit          ram_seeded;
+  // OUT_MEM_OFF value of the last reported overlap (sentinel = never reported);
+  // keeps a misconfigured multi-frame test from spamming one error per frame.
+  logic [31:0] last_overlap_fb_base = 32'hFFFF_FFFF;
 
   // --- C-model golden framebuffer sink (opt-in) --------------------------------
   // Off by default so the existing ctrl smoke / sys_access / multi_frame tests
@@ -102,6 +115,10 @@ class gpu_scoreboard extends uvm_scoreboard;
       rm[i].wmask   = (i == 1) ? 32'h1 : 32'hFFFFFFFF;
       rm[i].stored  = 32'h0;
     end
+    ram_seed_min = 32'h0;
+    ram_seed_max = 32'h0;
+    ram_seeded   = 1'b0;
+    last_overlap_fb_base = 32'hFFFF_FFFF;
   endfunction
 
   // Retained for API parity with the axfe unit env; the system scoreboard now
@@ -145,6 +162,7 @@ class gpu_scoreboard extends uvm_scoreboard;
   virtual function void handle_ctrl(axi4lite_seq_item item);
     int idx = reg_index(item.addr);
     if (item.op == WRITE) begin
+      logic [31:0] ctrl_pre; // pre-write CONTROL value (render START edge, overlap guard)
       ctrl_write_count++;
       if (idx >= NUM_REGS) begin
         `uvm_info("SCB_CTRL", $sformatf("Write to out-of-range ctrl offset 0x%0h dropped", item.addr), UVM_MEDIUM)
@@ -157,6 +175,9 @@ class gpu_scoreboard extends uvm_scoreboard;
         `uvm_info("SCB_CTRL", $sformatf("Write to live Reg[%0d] dropped; stored=%b", idx, rm[idx].stored), UVM_MEDIUM)
         return;
       end
+      // Capture the pre-write CONTROL value: the render START (bit0 0->1) edge
+      // is tested after the stored update below (overlap guard).
+      ctrl_pre = rm[idx].stored;
       for (int b = 0; b < 4; b++)
         if (item.strb[b]) rm[idx].stored[b*8 +: 8] = item.data[b*8 +: 8];
       rm[idx].stored = rm[idx].stored & rm[idx].wmask;
@@ -167,6 +188,21 @@ class gpu_scoreboard extends uvm_scoreboard;
          // We only model the stored INT_CLR register's own self-clear (reg2 -> 0).
          rm[idx].stored = 32'h0;
        end
+      // Overlap guard: on a render START (CONTROL bit0 0->1) the mesh seeding
+      // and the OUT_MEM_OFF programming are both complete, so the framebuffer
+      // region [OUT_MEM_OFF, OUT_MEM_OFF + GPU_FB_SIZE - 1] must be disjoint
+      // from every host-seeded RAM byte. The DUT does not clear the
+      // framebuffer, so an overlap would read back aliased seed data as
+      // spurious background pixels. Reported once per distinct OUT_MEM_OFF.
+      if (idx == 0 && ctrl_pre[0] === 1'b0 && rm[idx].stored[0] === 1'b1 && ram_seeded) begin
+        logic [31:0] fb_lo = rm[4].stored;
+        logic [31:0] fb_hi = rm[4].stored + GPU_FB_SIZE - 32'd1;
+        if ((fb_lo <= ram_seed_max) && (fb_hi >= ram_seed_min) &&
+            (last_overlap_fb_base !== rm[4].stored)) begin
+          last_overlap_fb_base = rm[4].stored;
+          `uvm_error("SCB_OVERLAP", $sformatf("Framebuffer region [0x%08h..0x%08h] (OUT_MEM_OFF=0x%08h, %0d rows x %0d B pitch) overlaps host-seeded RAM region [0x%08h..0x%08h]; the DUT does not clear the framebuffer, so the aliased mesh data would read back as spurious background pixels", fb_lo, fb_hi, rm[4].stored, GPU_FB_ROWS, GPU_FB_PITCH_BYTES, ram_seed_min, ram_seed_max))
+        end
+      end
     end else begin
       logic [31:0] expected;
       if (idx >= NUM_REGS) begin
@@ -194,6 +230,17 @@ class gpu_scoreboard extends uvm_scoreboard;
     if (item.op == WRITE) begin
       ram_write_count++;
       mem_model.write(item.addr, item.data);
+      // Track the host-seeded byte span for the overlap guard (full 4-byte word).
+      if (!ram_seeded) begin
+        ram_seed_min = item.addr;
+        ram_seed_max = item.addr + 32'd3;
+        ram_seeded   = 1'b1;
+      end else begin
+        if (item.addr < ram_seed_min)
+          ram_seed_min = item.addr;
+        if (item.addr + 32'd3 > ram_seed_max)
+          ram_seed_max = item.addr + 32'd3;
+      end
       if (item.resp !== RESP_OKAY)
         `uvm_error("SCB_RAM", $sformatf("RAM write to 0x%0h returned resp=%b, expected OKAY=%b",
                     item.addr, item.resp, RESP_OKAY))

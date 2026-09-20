@@ -110,8 +110,12 @@ module axil_sys_top #(
 
   /*
    * AXI4-Lite Crossbar
+   * Host address map: m00 shared RAM 0x0000_0000..0x03FF_FFFF (64 MB),
+   * m01 GPU control registers 0x0400_0000..0x04FF_FFFF (auto-aligned by the decode).
    */
-  axil_crossbar_wrap_3x2 crossbar_bus_inst (
+  axil_crossbar_wrap_3x2 #(
+    .M00_ADDR_WIDTH(32'd26)
+  ) crossbar_bus_inst (
     .clk(clk),
     .rst(reset),
 

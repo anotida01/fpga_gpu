@@ -93,7 +93,7 @@ class gpu_base_test extends uvm_test;
   //    $readmemh(mesh_name, dut.axil_ram0.mem);
   // and is reached via a virtual-if handle or a plain task passed to the test.
   // The memh path is the only route into the DUT-internal axil_ram0; no other
-  // test-side mechanism exists for it. See workorder §7 and History.
+  // test-side mechanism exists for it.
 
   // Scoreboard event hooks (for the future start/done/interrupt tests):
   function void report_gpu_done(); env.scb.report_gpu_done(); endfunction
@@ -104,6 +104,19 @@ class gpu_base_test extends uvm_test;
   localparam int ROP_BUF_WIDTH = 320;
   localparam int ROP_BUF_HEIGHT = 240;
   localparam int ROP_BUF_WORDS  = ROP_BUF_WIDTH * ROP_BUF_HEIGHT; // 76800 words
+
+  // --- DUT shared-RAM address plan (host-bus view, 64 MB window at 0x0) --------
+  // framebuffer (default OUT_MEM_OFF) : 0x0001_0000..0x0004_BFFF
+  //   (pitch 256 32-bit words x 240 rows = 0x3C000 bytes, DE1-SoC geometry)
+  // mesh seed base (byte address)     : 0x0005_0000, i.e. PAST the framebuffer
+  //   region with a 16 KiB guard band; the largest current mesh (bunny,
+  //   9,441,848 B) ends at 0x0095_33A8, still inside the 64 MB window.
+  // Note on AXI bridging: host-bus RAM writes use physical byte addresses directly,
+  // but the DMA read path's AXI bridge (wbm2axilite) scales Wishbone word addresses
+  // by 4 (left-shifts by 2). Therefore, IN_MEM_OFF must be programmed as a word
+  // offset (MESH_SEED_WORD_OFF = MESH_SEED_BYTE_OFF / 4 = 0x0001_4000).
+  localparam logic [31:0] MESH_SEED_BYTE_OFF = 32'h0005_0000;
+  localparam logic [31:0] MESH_SEED_WORD_OFF = MESH_SEED_BYTE_OFF / 32'd4; // 0x0001_4000
 
   // --- Mesh file locator ----------------------------------------------------
   // Resolve the mesh (.memh) file to seed the DUT-internal RAM.
