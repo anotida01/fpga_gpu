@@ -52,6 +52,13 @@ sim/questa/libraries/*
 # docs generated
 docs/generated/*
 
+# Core documentation & investigations (untracked until design stabilizes)
+INVEST_*.md
+README_*.md
+rtl/README_RTL_DESIGN.md
+tests/README_VERIFICATION_STRATEGY.md
+c_model/README_C_MODEL.md
+
 # Session working notes / prompts / scratch scripts
 PLAN_*.md
 PROMPT_*.md
@@ -61,7 +68,7 @@ setup_tools.sh
 run_item8_final.sh
 render_zbuffer.py
 
-# C model / fbview build artifacts
+# C model / fbview build artifacts & models
 c_model/.idea/
 c_model/build/
 c_model/cmake-build-debug/
@@ -69,6 +76,8 @@ c_model/img/
 c_model/*.memh
 c_model/*.mif
 fbview/build/
+tests/testcases/memh/bunny.memh
+tests/testcases/memh/dragon_0.05.memh
 
 # Driver build artifacts
 sw/driver/kernel/*.o
