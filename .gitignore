@@ -1,44 +1,33 @@
 *.tar*
+*.rar
+*.zip
+*.obj
+*.stl
+*.3ds
+*.fbx
+*.dae
+*.c4d
 *db
 *quartus*
 *modelsim*
 *questasim*
 /ip/*
-*.obj
-*.stl
-*.rar
-*.zip
-*.3ds
-*.fbx
-*.dae
-*.c4d
 
-# Quartus 
+# Quartus & Qsys
 *.sopcinfo
 *.bak
 *greybox_tmp*
-
-# & Qsys
 *.qsys_edit*
 qsys/gpu_sys/*
 qsys/gpu_axil_sys/*
+*~
 
-# Cadence
+# Cadence / Xcelium
 *cds_libs*
-
 *.xml
 *.html
 *.setup
-
-.vscode/*
-
-# Xcelium
-sim/xcelium/libraries/*
-sim/xcelium/.simvision/*
-sim/xcelium/xm*
-sim/xcelium/xrun*
-sim/xcelium/waves*
-sim/xcelium/xcelium.d/*
+.vscode/
 .simvision
 xcelium.d
 waves.shm
@@ -46,7 +35,6 @@ cov_work
 libraries
 sim/*
 !sim/new_flow/
-sim/new_flow/runs
 sim/new_flow/runs/
 sim/new_flow/xcelium.d/
 sim/new_flow/regression_logs/
@@ -54,17 +42,47 @@ sim/new_flow/regression_reports/
 sim/new_flow/*.log
 sim/new_flow/*.key
 sim/new_flow/*.history
+sim/new_flow/xmperfstat.out
+sim/new_flow/xrune
 
 # Questasim
 sim/questa/libraries/*
 *.wlf
 
-# docs
+# docs generated
 docs/generated/*
 
-# c_model
-c_model/build/*
-c_model/cmake-build-debug/*
+# Session working notes / prompts / scratch scripts
+PLAN_*.md
+PROMPT_*.md
+todo.txt
+flow.sh
+setup_tools.sh
+run_item8_final.sh
+render_zbuffer.py
 
-# work orders (session-scoped; must not be checked in)
+# C model / fbview build artifacts
+c_model/.idea/
+c_model/build/
+c_model/cmake-build-debug/
+c_model/img/
+c_model/*.memh
+c_model/*.mif
+fbview/build/
+
+# Driver build artifacts
+sw/driver/kernel/*.o
+sw/driver/kernel/*.ko
+sw/driver/kernel/*.mod.c
+sw/driver/kernel/*.mod.o
+sw/driver/kernel/*.o.cmd
+sw/driver/kernel/*.mod.o.cmd
+sw/driver/kernel/*.ko.cmd
+sw/driver/kernel/Module.symvers
+sw/driver/kernel/modules.order
+sw/driver/kernel/.tmp_versions/
+sw/driver/userspace/obj_loader
+sw/driver/userspace/*.o
+
+# Work orders (session-scoped; must not be checked in)
 workorders/
