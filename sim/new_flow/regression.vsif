@@ -122,6 +122,18 @@ group rop {
   }
 }
 
+group vn_shade {
+  run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
+  scan_script: "vm_scan.pl ius.flt shell.flt";
+  dut_name: "vn_shade";
+
+  test tc_vn_shade_basic {
+    sim_args: "-r tb_vn_shade_snap +UVM_TESTNAME=tc_vn_shade_basic";
+    count: 1;
+    sv_seed: random;
+  }
+}
+
 group rop_backend {
   run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
   scan_script: "vm_scan.pl ius.flt shell.flt";

@@ -1,6 +1,7 @@
 # snapshot_name       tb_top
 tb_axfe_snap          tb_axfe
 tb_rop_snap           tb_rop
+tb_vn_shade_snap      tb_vn_shade
 tb_rop_backend_snap   tb_rop_backend
 # tb_vxform_snap      tb_vxform
 # tb_raster_snap      tb_raster

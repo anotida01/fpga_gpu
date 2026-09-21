@@ -7,6 +7,7 @@
 #-work work
 -incdir $TESTS_DIR/envs/unit/axfe
 -incdir $TESTS_DIR/envs/unit/rop
+-incdir $TESTS_DIR/envs/unit/vn_shade
 -incdir $TESTS_DIR/envs/subsystem/rop_backend
 -incdir $TESTS_DIR/envs/system/gpu
 -incdir $TESTS_DIR/vip/gpu_hs

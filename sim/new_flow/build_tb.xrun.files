@@ -21,6 +21,11 @@ $TESTS_DIR/envs/unit/rop/rop_env_pkg.sv
 $TESTS_DIR/envs/unit/rop/rop_seq_pkg.sv
 $TESTS_DIR/envs/unit/rop/tb_rop.sv
 
+# VN Shade Unit Testbench
+$TESTS_DIR/envs/unit/vn_shade/vn_shade_env_pkg.sv
+$TESTS_DIR/envs/unit/vn_shade/vn_shade_seq_pkg.sv
+$TESTS_DIR/envs/unit/vn_shade/tb_vn_shade.sv
+
 # ROP Backend Subsystem Testbench
 $TESTS_DIR/envs/subsystem/rop_backend/rop_backend_env_pkg.sv
 $TESTS_DIR/envs/subsystem/rop_backend/rop_backend_seq_pkg.sv
