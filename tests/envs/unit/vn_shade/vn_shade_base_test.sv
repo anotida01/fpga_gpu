@@ -34,19 +34,34 @@ class vn_shade_base_test extends uvm_test;
     wait_for_reset();
   endtask
 
-  // Wait until all expected outputs have been captured by the scoreboard,
-  // i.e. the DUT's output pipeline is fully drained. Call after the last
-  // input word of the frame has been accepted; required before new_frame().
+  // Wait until the frame has fully drained on BOTH sides of the scoreboard:
+  // all expected outputs captured (exp_q empty, no partial triplet) AND the
+  // input-side parse quiesced (in_count unchanged for a few samples). The
+  // input monitor observes the last accepted word a few cycles after the
+  // DUT handshake, so the final exp entry is pushed AFTER the
+  // second-to-last output has already popped — waiting on exp_q alone can
+  // exit during that gap, and the frame-boundary reset then orphans the
+  // last vertex's exp entry (reset_state() error) and kills its in-flight
+  // output. Call after the last input word of the frame has been accepted;
+  // required before new_frame().
   // Watchdog: a DUT that never emits (or under-emits) would otherwise hang
   // the test here — the input-side driver has its own accept timeout.
   task wait_drained();
     int unsigned watchdog = 10000;
-    while (env.scb.exp_q.size() > 0) begin
+    int unsigned quiet = 0;
+    int unsigned last_in = env.scb.in_count;
+    while (1) begin
       @(posedge env.in_agent.vif.clk);
+      if ((env.scb.exp_q.size() == 0) && (env.scb.normal_word_idx == 0) &&
+          (env.scb.in_count == last_in)) begin
+        if (++quiet >= 3) return;
+      end else begin
+        quiet = 0;
+      end
+      last_in = env.scb.in_count;
       if (watchdog-- == 1)
         `uvm_fatal("WAIT_DRAINED", $sformatf("DUT did not drain the %0d pending expected output(s) within 10000 cycles", env.scb.exp_q.size()))
     end
-    repeat(10) @(posedge env.in_agent.vif.clk);
   endtask
 
   // Stop generating the DUT clock.
