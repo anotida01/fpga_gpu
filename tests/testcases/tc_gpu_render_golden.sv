@@ -41,15 +41,15 @@ class tc_gpu_render_golden extends gpu_base_test;
 
     phase.raise_objection(this);
 
-    // "golden of the golden" gate. Non-zero -> UVM_WARNING and continue: the
-    // self-test golden is not yet implemented, so cmodel_selftest() returns the
-    // CMODEL_SELFTEST_NI sentinel (0x7001). The DUT-vs-cmodel_fb_pixel pixel
-    // compare is the authoritative check. Revisit to uvm_fatal once the
-    // self-test golden lands.
+    // "golden of the golden" gate: the C model's own known-answer self-test
+    // (pure math + temp-mesh write/load + full pipeline vs a known-good
+    // pixel, then reset). Non-zero is a bitmask of failed sub-checks — the
+    // golden reference itself is broken, so a pixel compare against it is
+    // worthless; abort:
     st = gpu_cmodel_pkg::cmodel_selftest();
     if (st != 0)
-      `uvm_warning("GOLDEN_SELFTEST", $sformatf(
-        "cmodel_selftest: NOT YET IMPLEMENTED (returned %0h) -- falling back to pixel compare as the golden check", st))
+      `uvm_fatal("GOLDEN_SELFTEST", $sformatf(
+        "cmodel_selftest failed (bitmask %0d) -- the C-model golden reference is broken; do not trust the pixel compare", st))
     else
       `uvm_info("GOLDEN_SELFTEST", "cmodel_selftest OK (0)", UVM_LOW)
 

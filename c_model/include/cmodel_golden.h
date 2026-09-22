@@ -48,13 +48,82 @@ cmodel_rc cmodel_fb_gray(int x, int y);
 /* Return the raw 32-bit Q4.13 z-buffer value at (x,y). */
 cmodel_rc cmodel_z_pixel(int x, int y);
 
+/* Per-vertex directional diffuse, EXACT variant (unit-level oracle).
+ *   Inputs: light (lx,ly,lz) and normal (nx,ny,nz), each a 27-bit
+ *   two's-complement Q13.14 raw value (precondition: |v| < 2^26).
+ *   Math:   sum = nx*lx + ny*ly + nz*lz   (int64, exact products)
+ *           out = (int32_t)((sum >> 14) & 0x7FFFFFF)  // arithmetic floor
+ *                                                          shift, 27-bit
+ *   Returns the 27-bit Q13.14 result, sign-extended into the low 32 bits
+ *   (i.e. the value you would read from a 27-bit two's-complement port).
+ *   Stateless: valid without cmodel_init / cmodel_load_mesh.
+ *
+ *   Relationship to the per-term-rounded dot_3 (frame-level path): dot_3
+ *   multiplies each component pair through fpm::fixed (round-to-nearest
+ *   per product) and adds the three rounded terms; this function
+ *   accumulates exact int64 products and applies ONE arithmetic floor
+ *   shift. The two agree whenever every product is exact (e.g. unit
+ *   normals) and can differ by 1-2 LSB on general data. Worked example
+ *   under the box light (10711, -10081, 7217):
+ *     (-16384, 0, 0)  -> -10711   (both variants)
+ *     (8192,8192,8192)-> exact 3923 (floor(3923.5));
+ *                         per-term-rounded 3924 (5356 - 5041 + 3609)
+ *   The per-term-rounded path stays the locked frame-level behaviour
+ *   (colour contract); do NOT "align" one variant to the other.
+ */
+int cmodel_shade_dot_exact(int lx, int ly, int lz,
+                           int nx, int ny, int nz);
+
+/* Flat vertex count: 3 * (triangle count in the loaded mesh).
+ *   Returns 0 if no mesh is loaded. */
+int cmodel_vertex_count(void);
+
+/* Raw mesh vertex i (0-based, i < cmodel_vertex_count()):
+ *   pos[4] = x,y,z,w ; nrm[3] = xn,yn,zn
+ *   32-bit two's-complement Q13.14 raw values, as loaded.
+ *   Flat indexing: vertex i = triangle i/3, corner i%3 (p0,p1,p2 order),
+ *   matching the DUT stream order. Out-of-range index -> CMODEL_STATE_ERROR.
+ *   Precondition: cmodel_load_mesh succeeded (else CMODEL_STATE_ERROR). */
+cmodel_rc cmodel_get_vertex_raw(int i, int pos[4], int nrm[3]);
+
+/* Transformed (raster-space) vertex i: pos[4] = x,y,z,w (the 4x4 composite
+ *   transform + w-normalization applied during cmodel_render; the C model
+ *   does not transform normals).
+ *   Flat indexing as cmodel_get_vertex_raw; out-of-range -> CMODEL_STATE_ERROR.
+ *   Precondition: cmodel_render succeeded (else CMODEL_STATE_ERROR). */
+cmodel_rc cmodel_get_vertex_xform(int i, int pos[4]);
+
+/* Rendered per-vertex shaded intensity (Q13.14, the value shade_obj stored
+ *   in colour.red — i.e. the per-term-rounded dot_3 result). For
+ *   frame-level consistency checks; use cmodel_shade_dot_exact(light, nrm)
+ *   for the unit-level exact oracle.
+ *   Flat indexing as cmodel_get_vertex_raw.
+ *   Precondition: cmodel_render succeeded; returns 0 if not rendered or
+ *   out of range (int return has no error channel). */
+int cmodel_get_vertex_shade(int i);
+
+/* Write a mesh file in the 16+3+1+N*7 format (8-hex-digit lines,
+ *   two's-complement raw values): 16 matrix words (mat), 3 light words
+ *   (light), 1 count word (= n_vertices*7), then n_vertices*7 words with
+ *   each vertex = (x,y,z,w,nx,ny,nz). Round-trips with cmodel_load_mesh.
+ *   Returns CMODEL_OK / CMODEL_FILE_ERROR. */
+cmodel_rc cmodel_write_mesh(const char *path,
+                            const int mat[16], const int light[3],
+                            const int verts[], int n_vertices);
+
 /* Free and re-initialize all global state (so the next triple is clean). */
 cmodel_rc cmodel_reset(void);
 
- /* Run the self-test golden and return 0 on match, non-zero on mismatch. */
+ /* Run the self-test golden (known-answer checks: exact-dot vectors,
+  * exact-vs-rounded divergence, seeded consistency sweep, write/load mesh
+  * round-trip). Self-contained: no repo-relative file reads, no
+  * framebuffer; valid before cmodel_init. Returns 0 on full match,
+  * non-zero (bitmask of the failed sub-checks) otherwise. */
  cmodel_rc cmodel_selftest(void);
 
- /* Return the ABI major version (1) for the DPI-C caller to sanity-check. */
+ /* Return the ABI major version (2) for the DPI-C caller to sanity-check.
+  * 1 = original 9-symbol frame-level surface; 2 = adds cmodel_shade_dot_
+  * exact, the per-vertex queries, and cmodel_write_mesh (additive). */
  cmodel_rc cmodel_version(void);
 
  /* Write the rendered FRAMEBUFFER to `path` as a (H_SIZE x V_SIZE) 8-bit

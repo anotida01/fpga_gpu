@@ -24,6 +24,21 @@ class vn_shade_scoreboard extends uvm_scoreboard;
   // Expected output FIFO (Q12.14 signed intensity, one entry per vertex)
   logic signed [26:0] exp_q[$];
 
+  // Optional external golden mode: the test pushes one expected value per
+  // vertex via push_ext_exp() (e.g. from the C-model exact-shade reference,
+  // cmodel_shade_dot_exact), in the same order the normal triplets are
+  // driven. When ext_golden_mode is set, write_in() still computes the
+  // inline Q13.14 N.L from the driven light + normal, cross-checks it
+  // against the pushed value (UVM_ERROR on disagreement — both are the same
+  // arithmetic and must agree), and scores the DUT against the pushed
+  // value. Default (mode cleared): pure inline scoring, as before.
+  bit ext_golden_mode;
+  logic signed [26:0] ext_exp_q[$];
+
+  virtual function void push_ext_exp(logic signed [26:0] val);
+    ext_exp_q.push_back(val);
+  endfunction
+
   int in_count;
   int out_count;
   int mismatch_count;
@@ -38,18 +53,21 @@ class vn_shade_scoreboard extends uvm_scoreboard;
   endfunction
 
   // Frame-boundary reset: clears the light-locked flag, the in-progress
-  // triplet, and the expected FIFO. Must only be called after the previous
-  // stream has fully drained — pending entries or an incomplete triplet
-  // mean a reset was issued mid-frame.
+  // triplet, the expected FIFO, and the pushed external-golden queue. Must
+  // only be called after the previous stream has fully drained — pending
+  // entries or an incomplete triplet mean a reset was issued mid-frame.
   virtual task reset_state();
     if (exp_q.size() > 0)
       `uvm_error("SCB_RST", $sformatf("reset_state() called with %0d pending expected entries (reset issued mid-frame?)", exp_q.size()))
+    if (ext_exp_q.size() > 0)
+      `uvm_error("SCB_RST", $sformatf("reset_state() called with %0d unconsumed pushed external expected values", ext_exp_q.size()))
     if (light_locked && normal_word_idx != 0)
       `uvm_error("SCB_RST", $sformatf("reset_state() called with an incomplete normal triplet (%0d of 3 words)", normal_word_idx))
     light_locked    = 0;
     light_word_idx  = 0;
     normal_word_idx = 0;
     exp_q.delete();
+    ext_exp_q.delete();
   endtask
 
   virtual function void write_in(pipe_item item);
@@ -88,6 +106,23 @@ class vn_shade_scoreboard extends uvm_scoreboard;
         sum = nx64 * $signed(Lx) + ny64 * $signed(Ly) + nz64 * $signed(Lz);
         shifted = sum >>> 14;
         exp_val = signed'(shifted[26:0]);
+
+        // External golden mode: cross-check the inline result against the
+        // value the test pushed (C-model reference) and score the DUT
+        // against the pushed value.
+        if (ext_golden_mode) begin
+          if (ext_exp_q.size() == 0)
+            `uvm_error("SCB_EXT", $sformatf("External golden mode: no pushed expected value for normal (%0d,%0d,%0d)",
+                      normal_word[0], normal_word[1], normal_word[2]))
+          else begin
+            logic signed [26:0] ext_val;
+            ext_val = ext_exp_q.pop_front();
+            if (ext_val !== exp_val)
+              `uvm_error("SCB_EXT", $sformatf("External golden (%0d) disagrees with inline golden (%0d): normal=(%0d,%0d,%0d) light=(%0d,%0d,%0d)",
+                        ext_val, exp_val, normal_word[0], normal_word[1], normal_word[2], Lx, Ly, Lz))
+            exp_val = ext_val;
+          end
+        end
         exp_q.push_back(exp_val);
 
         `uvm_info("SCB_IN", $sformatf("Normal (%0d,%0d,%0d) -> exp=%0d",
@@ -123,6 +158,8 @@ class vn_shade_scoreboard extends uvm_scoreboard;
   function void check_phase(uvm_phase phase);
     if (exp_q.size() > 0)
       `uvm_error("SCB_CHECK", $sformatf("Undrained expected outputs: %0d entries remain", exp_q.size()))
+    if (ext_exp_q.size() > 0)
+      `uvm_error("SCB_CHECK", $sformatf("Unconsumed pushed external expected values: %0d entries remain", ext_exp_q.size()))
     if (light_locked && normal_word_idx != 0)
       `uvm_error("SCB_CHECK", $sformatf("Incomplete normal triplet at end of test: %0d of 3 words", normal_word_idx))
   endfunction

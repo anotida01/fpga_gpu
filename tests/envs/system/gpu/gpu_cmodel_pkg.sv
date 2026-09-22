@@ -1,9 +1,12 @@
 // gpu_cmodel_pkg.sv — DPI-C import package for the cmodel_golden shared library.
 //
-// SV-side package mirroring the 9
-// C-ABI symbols in c_model/include/cmodel_golden.h so UVM code can call into
-// the C-model golden reference without the DPI-C keyword appearing anywhere
-// else in the repo.
+// SV-side package mirroring the frame-level C-ABI surface in
+// c_model/include/cmodel_golden.h (ABI major version 2) so UVM code can call
+// into the C-model golden reference without the DPI-C keyword appearing
+// anywhere else in the repo. The per-vertex query surface (cmodel_version,
+// cmodel_shade_dot_exact, cmodel_vertex_count, cmodel_get_vertex_raw,
+// cmodel_get_vertex_xform, cmodel_get_vertex_shade) lives in the standalone
+// tests/vip/cmodel/cmodel_query_pkg.sv — unit-level envs import that one.
 //
 // Type map (per cmodel_golden.h, where `typedef unsigned int cmodel_rc`):
 //   cmodel_rc      -> int unsigned
@@ -29,9 +32,8 @@ package gpu_cmodel_pkg;
   localparam int unsigned CMODEL_OOM           = 32'h1;
   localparam int unsigned CMODEL_FILE_ERROR    = 32'h2; // mesh path did not resolve under xrun CWD
   localparam int unsigned CMODEL_STATE_ERROR   = 32'h3;
-  localparam int unsigned CMODEL_SELFTEST_NI   = 32'h7001; // self-test golden not yet implemented
 
-  // --- DPI-C imports: 9 C-ABI symbols from cmodel_golden.h ------------------
+  // --- DPI-C imports: 10 frame-level C-ABI symbols from cmodel_golden.h ----
   import "DPI-C" function int unsigned cmodel_init (input int w, input int h);
   import "DPI-C" function int unsigned cmodel_load_mesh (input string memh_path);
   import "DPI-C" function int unsigned cmodel_render ();
@@ -39,6 +41,9 @@ package gpu_cmodel_pkg;
   import "DPI-C" function int unsigned cmodel_fb_gray (input int x, input int y);
   import "DPI-C" function int unsigned cmodel_z_pixel (input int x, input int y);
   import "DPI-C" function int unsigned cmodel_reset ();
+  // cmodel_selftest(): full known-answer self-test (pure math + temp-mesh
+  // write/load + full pipeline vs known-good pixel, then resets). Returns 0
+  // on full match; non-zero = bitmask of failed sub-checks.
   import "DPI-C" function int unsigned cmodel_selftest ();
   import "DPI-C" function int unsigned cmodel_version ();
   import "DPI-C" function int unsigned cmodel_save_image (input string img_path);
@@ -46,11 +51,11 @@ package gpu_cmodel_pkg;
   // --- Wrapper tasks --------------------------------------------------------
 
   // "Did the DPI-C link actually resolve?" sanity gate: 1 iff the C model
-  // reports ABI major version 1 (the value declared in cmodel_golden.h:39).
+  // reports ABI major version 2 (the value declared in cmodel_golden.h).
   // The scoreboard / test should call this once at entry and uvm_fatal on 0
   // before trusting any cmodel_* result.
   function bit cmodel_version_ok();
-    return (cmodel_version() == 1);
+    return (cmodel_version() == 2);
   endfunction
 
   // Run the full pipeline (reset -> init -> load -> render) in one call.

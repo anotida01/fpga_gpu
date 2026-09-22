@@ -35,6 +35,9 @@ $TESTS_DIR/envs/subsystem/rop_backend/tb_rop_backend.sv
 # gpu_cmodel_pkg must compile BEFORE gpu_env_pkg: gpu_env_pkg now imports it
 # (the scoreboard's C-model golden sink calls cmodel_run / cmodel_fb_pixel).
 $TESTS_DIR/envs/system/gpu/gpu_cmodel_pkg.sv
+# Per-vertex query package (standalone unit-level C-model oracle surface,
+# ABI v2: cmodel_shade_dot_exact / get_vertex_raw / get_vertex_shade / ...).
+$TESTS_DIR/vip/cmodel/cmodel_query_pkg.sv
 $TESTS_DIR/envs/system/gpu/gpu_fbview_pkg.sv
 # Live-display sink + passively-bound per-pixel tap (DPI-C into fbview's display half).
 $TESTS_DIR/envs/system/gpu/fbview_live_px_tap.sv
