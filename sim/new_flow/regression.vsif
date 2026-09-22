@@ -132,6 +132,12 @@ group vn_shade {
     count: 1;
     sv_seed: random;
   }
+
+  test tc_vn_shade_per_vertex {
+    sim_args: "-r tb_vn_shade_snap +UVM_TESTNAME=tc_vn_shade_per_vertex";
+    count: 1;
+    sv_seed: random;
+  }
 }
 
 group rop_backend {
