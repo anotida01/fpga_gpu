@@ -1,4 +1,4 @@
-// gpu_cmodel_pkg.sv — DPI-C import package for the cmodel_golden shared library.
+// gpu_cmodel_pkg.sv - DPI-C import package for the cmodel_golden shared library.
 //
 // SV-side package mirroring the frame-level C-ABI surface in
 // c_model/include/cmodel_golden.h (ABI major version 2) so UVM code can call
@@ -6,7 +6,7 @@
 // anywhere else in the repo. The per-vertex query surface (cmodel_version,
 // cmodel_shade_dot_exact, cmodel_vertex_count, cmodel_get_vertex_raw,
 // cmodel_get_vertex_xform, cmodel_get_vertex_shade) lives in the standalone
-// tests/vip/cmodel/cmodel_query_pkg.sv — unit-level envs import that one.
+// tests/vip/cmodel/cmodel_query_pkg.sv - unit-level envs import that one.
 //
 // Type map (per cmodel_golden.h, where `typedef unsigned int cmodel_rc`):
 //   cmodel_rc      -> int unsigned
@@ -20,7 +20,7 @@
 // This package intentionally does NOT emit UVM_ERROR itself; the caller
 // (gpu_scoreboard / tc_gpu_render_golden) owns the reporting surface so the
 // package stays a thin, testable wrapper over the C-ABI. It also does not
-// import uvm_pkg — it has no UVM types, classes, or macros.
+// import uvm_pkg - it has no UVM types, classes, or macros.
 
 `ifndef GPU_CMODEL_PKG
 `define GPU_CMODEL_PKG
@@ -51,11 +51,11 @@ package gpu_cmodel_pkg;
   // --- Wrapper tasks --------------------------------------------------------
 
   // "Did the DPI-C link actually resolve?" sanity gate: 1 iff the C model
-  // reports ABI major version 2 (the value declared in cmodel_golden.h).
+  // reports ABI major version 3 (the value declared in cmodel_golden.h).
   // The scoreboard / test should call this once at entry and uvm_fatal on 0
   // before trusting any cmodel_* result.
   function bit cmodel_version_ok();
-    return (cmodel_version() == 2);
+    return (cmodel_version() == 3);
   endfunction
 
   // Run the full pipeline (reset -> init -> load -> render) in one call.
@@ -82,7 +82,7 @@ package gpu_cmodel_pkg;
   // FRAMEBUFFER via cmodel_fb_pixel, over w*h pixels.
   //
   // The caller MUST have already succeeded with cmodel_run() before calling
-  // this — a non-OK return from cmodel_run() means the C model did not
+  // this - a non-OK return from cmodel_run() means the C model did not
   // render, so there is nothing to compare against.
   //
   // Returns the pure mismatch count (0 == full match, max w*h). This

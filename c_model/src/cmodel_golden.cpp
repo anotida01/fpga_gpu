@@ -1,4 +1,4 @@
-// cmodel_golden.cpp — C-ABI implementation for the cmodel_golden shared library.
+// cmodel_golden.cpp - C-ABI implementation for the cmodel_golden shared library.
 //
 // Phase A item 3.3: implementation of the 8 C-ABI functions. Wraps the existing
 // math pipeline (xform_obj / shade_obj / draw_obj via cmodel_core) without
@@ -243,7 +243,7 @@ cmodel_rc cmodel_reset(void){
 }
 
 /*
- * cmodel_save_image — off-sim image capture.
+ * cmodel_save_image - off-sim image capture.
  *
  * Emits a (H_SIZE x V_SIZE) PNG with the rendered framebuffer contents.
  * The per-pixel computation is the EXACT same C1 formula used by
@@ -318,7 +318,7 @@ cmodel_rc cmodel_save_image(const char *path) {
     return (rc == 0) ? CMODEL_OK : CMODEL_FILE_ERROR;
 }
 
-#else  /* !CMODEL_HAVE_LIBPNG — feature compiled out */
+#else  /* !CMODEL_HAVE_LIBPNG - feature compiled out */
 
 cmodel_rc cmodel_save_image(const char *path) {
     (void)path;
@@ -426,14 +426,14 @@ cmodel_rc cmodel_write_mesh(const char *path,
 }
 
 /* =========================================================================
- * Self-test — the "golden of the golden" (README §7.6).
+ * Self-test - the "golden of the golden" (README §7.6).
  *
  * Self-contained known-answer checks: no repo-relative file reads, no
  * framebuffer; valid before cmodel_init. Returns 0 on full match; non-zero
  * is a bitmask of the failed sub-checks:
  *   bit 0 (1): (a) exact-dot known answers under the box light
  *   bit 1 (2): (b) per-term-rounded variant: equals exact for the six unit
- *              normals, and 3924 for (8192,8192,8192) — the documented
+ *              normals, and 3924 for (8192,8192,8192) - the documented
  *              exact-vs-rounded divergence, locked as intended
  *   bit 2 (4): (c) seeded sweep: |exact - rounded| <= 3 for 100 random
  *              (light, normal) pairs, components in the per-term-rounded
@@ -476,12 +476,48 @@ static bool selftest_read_mesh_words(const char *path, std::vector<int32_t> *wor
     return true;
 }
 
+// =========================================================================
+// ABI v3 helpers (file-static, non-exported).
+//   u27/s27: 27-bit two's-complement pattern <-> signed value (DUT convention).
+//   dut_term: one madd term of the DUT edge/winding datapath -
+//             ((a.x - b.x) * (a.y - b.y)) >> 14, pattern arithmetic, floor shift.
+// =========================================================================
+static inline uint32_t u27(int v) { return (uint32_t)v & 0x7FFFFFFu; }
+static inline int64_t  s27(int v) {
+    uint32_t u = u27(v);
+    if (u & 0x4000000u) {
+        return (int64_t)(int32_t)(u | ~0x7FFFFFFu);
+    }
+    return (int64_t)(int32_t)u;
+}
+
+static inline int32_t dut_term(int ax, int ay, int bx, int by) {
+    int64_t d1 = (int64_t)u27(ax) - (int64_t)u27(bx);
+    int64_t d2 = (int64_t)u27(ay) - (int64_t)u27(by);
+    return (int32_t)((d1 * d2) >> 14);
+}
+
+// Selftest-only (NOT exported) reference: the A-form winding datapath with
+// SIGNED-intent arithmetic (s27 inputs), used by 6C to pin the signed
+// variant of the F9 anchor alongside the exported pattern-value result.
+static int32_t ref_tri_winding_signed(int x0, int y0, int x1, int y1,
+                                      int x2, int y2) {
+    auto s_term = [](int ax, int ay, int bx, int by) {
+        int64_t d1 = s27(ax) - s27(bx);
+        int64_t d2 = s27(ay) - s27(by);
+        return (int32_t)((d1 * d2) >> 14);
+    };
+    int32_t m1 = s_term(x2, y1, x1, y0);
+    int32_t m2 = s_term(x1, y2, x0, y1);
+    return m1 - m2;
+}
+
 cmodel_rc cmodel_selftest(void){
     // Box light (the light words of tests/testcases/memh/box.memh).
     const int LX = 10711, LY = -10081, LZ = 7217;
     cmodel_rc fail = 0;
 
-    // (a) exact-variant known answers — the four independent hand-computed
+    // (a) exact-variant known answers - the four independent hand-computed
     //     vectors under the box light.
     {
         struct { int nx, ny, nz, exp; } ka[] = {
@@ -509,7 +545,7 @@ cmodel_rc cmodel_selftest(void){
 
     // (b) per-term-rounded variant: equals the exact variant for the six
     //     unit normals (unit normal * light divides exactly), and 3924 for
-    //     (8192,8192,8192) — locking the documented divergence as intended.
+    //     (8192,8192,8192) - locking the documented divergence as intended.
     {
         int units[6][3] = {
             { -16384, 0, 0 }, { 16384, 0, 0 },
@@ -644,9 +680,396 @@ cmodel_rc cmodel_selftest(void){
     // subsequent cmodel_run starts from scratch.
     cmodel_reset();
 
+    // =====================================================================
+    // ABI v3 Self-test anchors & sweeps (items 6A–6H)
+    // =====================================================================
+
+    // 6A. 1a transform anchors
+    {
+        const int identity_mat[16] = {
+            16384, 0, 0, 0,
+            0, 16384, 0, 0,
+            0, 0, 16384, 0,
+            0, 0, 0, 16384
+        };
+        const int scale_mat[16] = {
+            16384, 0, 0, 0,
+            0, 32768, 0, 0,
+            0, 0, 16384, 0,
+            0, 0, 0, 16384
+        };
+        const int pos_in[4] = { 1000, -2000, 3000, 16384 };
+        int pos_out[4];
+
+        if (cmodel_vertex_xform_exact(identity_mat, pos_in, pos_out) != CMODEL_OK ||
+            pos_out[0] != 1000 || pos_out[1] != -2000 || pos_out[2] != 3000 || pos_out[3] != 16384) {
+            fail |= 16;
+            fprintf(stderr, "selftest 6A (1a identity): mismatch\n");
+        }
+        if (cmodel_vertex_xform_exact(scale_mat, pos_in, pos_out) != CMODEL_OK ||
+            pos_out[0] != 1000 || pos_out[1] != -4000 || pos_out[2] != 3000 || pos_out[3] != 16384) {
+            fail |= 16;
+            fprintf(stderr, "selftest 6A (1a scale): mismatch\n");
+        }
+    }
+
+    // 6B. 1b w_norm anchors
+    {
+        int out[4];
+        // Exact division
+        if (cmodel_w_norm_exact(16384, 0, 0, 8192, out) != CMODEL_OK ||
+            out[0] != 32768 || out[1] != 0 || out[2] != 0 || out[3] != 16384) {
+            fail |= 32;
+            fprintf(stderr, "selftest 6B (1b exact): mismatch\n");
+        }
+        // Inexact, n >= 0 (LPM == C99 trunc; fpm round-to-nearest would give 7022)
+        if (cmodel_w_norm_exact(3, 3, 3, 7, out) != CMODEL_OK ||
+            out[0] != 7021 || out[1] != 7021 || out[2] != 7021 || out[3] != 16384) {
+            fail |= 32;
+            fprintf(stderr, "selftest 6B (1b n>=0 inexact): mismatch (got %d expected 7021)\n", out[0]);
+        }
+        // Inexact, n < 0, d > 0 -> floor (C99 trunc gives -7021, LPM gives -7022)
+        if (cmodel_w_norm_exact(-3, -3, -3, 7, out) != CMODEL_OK ||
+            out[0] != -7022 || out[1] != -7022 || out[2] != -7022 || out[3] != 16384) {
+            fail |= 32;
+            fprintf(stderr, "selftest 6B (1b n<0 d>0 floor): mismatch (got %d expected -7022)\n", out[0]);
+        }
+        // Inexact, n > 0, d < 0 -> C99 == LPM (-7021)
+        if (cmodel_w_norm_exact(3, 3, 3, -7, out) != CMODEL_OK ||
+            out[0] != -7021 || out[1] != -7021 || out[2] != -7021 || out[3] != 16384) {
+            fail |= 32;
+            fprintf(stderr, "selftest 6B (1b n>0 d<0): mismatch (got %d expected -7021)\n", out[0]);
+        }
+        // Inexact, n < 0, d < 0 -> ceil (+7022)
+        if (cmodel_w_norm_exact(-3, -3, -3, -7, out) != CMODEL_OK ||
+            out[0] != 7022 || out[1] != 7022 || out[2] != 7022 || out[3] != 16384) {
+            fail |= 32;
+            fprintf(stderr, "selftest 6B (1b n<0 d<0 ceil): mismatch (got %d expected 7022)\n", out[0]);
+        }
+        // w == 0 -> CMODEL_STATE_ERROR
+        if (cmodel_w_norm_exact(3, 3, 3, 0, out) != CMODEL_STATE_ERROR) {
+            fail |= 32;
+            fprintf(stderr, "selftest 6B (1b w==0 error): expected CMODEL_STATE_ERROR\n");
+        }
+    }
+
+    // 6C. 1c winding anchors (including F9 signed vs pattern)
+    {
+        if (cmodel_tri_winding(0, 0, 0, 16384, 16384, 0) != 16384) {
+            fail |= 64;
+            fprintf(stderr, "selftest 6C (1c +16384): mismatch\n");
+        }
+        if (cmodel_tri_winding(0, 0, 16384, 0, 0, 16384) != -16384) {
+            fail |= 64;
+            fprintf(stderr, "selftest 6C (1c -16384): mismatch\n");
+        }
+        // F9 anchor: (0,0), ((1<<27)-16384, 0), (16384, 16384).
+        //   exported (DUT pattern-value) result: -134201344
+        //   signed-intent reference result:       +16384
+        // Both are pinned via the non-exported local reference (WO item 6C).
+        int f9_x1 = (1 << 27) - 16384;
+        int f9_pattern = cmodel_tri_winding(0, 0, f9_x1, 0, 16384, 16384);
+        int f9_signed  = ref_tri_winding_signed(0, 0, f9_x1, 0, 16384, 16384);
+        if (f9_pattern != -134201344) {
+            fail |= 64;
+            fprintf(stderr, "selftest 6C (F9 pattern-value): got %d expected -134201344\n", f9_pattern);
+        }
+        if (f9_signed != 16384) {
+            fail |= 64;
+            fprintf(stderr, "selftest 6C (F9 signed-intent): got %d expected 16384\n", f9_signed);
+        }
+    }
+
+    // 6D. 1d edge anchors
+    {
+        if (cmodel_edge_func(0, 0, 16384, 0, 0, 16384) != -16384) {
+            fail |= 128;
+            fprintf(stderr, "selftest 6D (1d -16384): mismatch\n");
+        }
+        if (cmodel_edge_func(0, 0, 0, 16384, 16384, 0) != 16384) {
+            fail |= 128;
+            fprintf(stderr, "selftest 6D (1d +16384): mismatch\n");
+        }
+    }
+
+    // 6E. 1e inv_z anchors
+    {
+        int iz;
+        if (cmodel_inv_z_exact(16384, &iz) != CMODEL_OK || iz != 16384) {
+            fail |= 256;
+            fprintf(stderr, "selftest 6E (1e z=16384): mismatch\n");
+        }
+        if (cmodel_inv_z_exact(32768, &iz) != CMODEL_OK || iz != 8192) {
+            fail |= 256;
+            fprintf(stderr, "selftest 6E (1e z=32768): mismatch\n");
+        }
+        if (cmodel_inv_z_exact(0, &iz) != CMODEL_STATE_ERROR) {
+            fail |= 256;
+            fprintf(stderr, "selftest 6E (1e z=0 error): expected CMODEL_STATE_ERROR\n");
+        }
+    }
+
+    // 6F. 1f depth sample anchors
+    {
+        int w[3], one_over_z, z_depth;
+        // Normal case
+        cmodel_depth_sample(1258291200, 0, 0, 1258291200, 16384, 16384, 16384, w, &one_over_z, &z_depth);
+        if (w[0] != 16384 || w[1] != 0 || w[2] != 0 || one_over_z != 16384 || z_depth != 16384) {
+            fail |= 512;
+            fprintf(stderr, "selftest 6F (1f normal): mismatch\n");
+        }
+        // Degenerate area == 0 -> substituted with 1
+        cmodel_depth_sample(1, 0, 0, 0, 16384, 16384, 16384, w, &one_over_z, &z_depth);
+        if (w[0] != 16384 || one_over_z != 16384 || z_depth != 16384) {
+            fail |= 512;
+            fprintf(stderr, "selftest 6F (1f area==0): mismatch\n");
+        }
+    }
+
+    // 6G. 1g raster sample anchors
+    {
+        int inside, w[3], one_over_z, z_depth;
+        // Inside anchor: sample exactly at (0,0)
+        cmodel_raster_sample(0, 0, 0, 240<<14, 320<<14, 0,
+                             16384, 16384, 16384,
+                             -8192, -8192,
+                             &inside, w, &one_over_z, &z_depth);
+        if (!inside || w[0] != 16384 || one_over_z != 16384 || z_depth != 16384) {
+            fail |= 1024;
+            fprintf(stderr, "selftest 6G (1g inside): mismatch (inside=%d, w0=%d, ooz=%d, zd=%d)\n",
+                    inside, w[0], one_over_z, z_depth);
+        }
+        // Outside anchor
+        cmodel_raster_sample(0, 0, 0, 240<<14, 320<<14, 0,
+                             16384, 16384, 16384,
+                             (320<<14) - 8192, (240<<14) - 8192,
+                             &inside, w, &one_over_z, &z_depth);
+        if (inside) {
+            fail |= 1024;
+            fprintf(stderr, "selftest 6G (1g outside): expected inside=0\n");
+        }
+    }
+
+    // 6H. Seeded divergence sweeps (a) xform, (b) w_norm.
+    //     Seed: 0xC0FFEE (LCG a=1664525, c=1013904223) - documented per WO
+    //     item 6H. N >= 1024 cases each.
+    {
+        uint32_t sweep_rng = 0xC0FFEEu;
+        auto next_sweep_rand = [&sweep_rng]() -> int32_t {
+            sweep_rng = sweep_rng * 1664525u + 1013904223u;
+            uint32_t r = (sweep_rng & 0x7FFF) | ((sweep_rng & 0x10000) ? 0x8000 : 0);
+            return (int32_t)(int16_t)(uint16_t)r;
+        };
+
+        // (a) xform sweep: 342 single-triangle meshes x 3 vertices = 1026
+        //     >= 1024 cases. Mesh round-trip per the WO: cmodel_write_mesh +
+        //     cmodel_load_mesh + cmodel_render, then cmodel_vertex_xform_exact
+        //     vs cmodel_get_vertex_xform. w-row [0,0,0,16384] and w_in = 16384
+        //     keep out_w = 1.0, so the C model skips the w-division (transform.
+        //     cpp:64-73 divides only when w != exactly 1) and
+        //     cmodel_get_vertex_xform holds the fpm per-term-rounded pre-w-norm
+        //     value.
+        const char *sweep_tmp = "cmodel_selftest_sweep_tmp.memh";
+        int max_xform_diff = 0;
+        for (int m = 0; m < 342; m++) {
+            int mat[16];
+            for (int r = 0; r < 3; r++)
+                for (int c = 0; c < 4; c++)
+                    mat[r*4 + c] = next_sweep_rand();
+            mat[12] = 0; mat[13] = 0; mat[14] = 0; mat[15] = 16384;
+
+            int light[3] = { 10711, -10081, 7217 };
+            int verts[21];
+            int raw_pos[3][4];
+            for (int v = 0; v < 3; v++) {
+                raw_pos[v][0] = next_sweep_rand();
+                raw_pos[v][1] = next_sweep_rand();
+                raw_pos[v][2] = next_sweep_rand();
+                raw_pos[v][3] = 16384;
+                verts[v*7 + 0] = raw_pos[v][0];
+                verts[v*7 + 1] = raw_pos[v][1];
+                verts[v*7 + 2] = raw_pos[v][2];
+                verts[v*7 + 3] = raw_pos[v][3];
+                verts[v*7 + 4] = 0; verts[v*7 + 5] = 0; verts[v*7 + 6] = 16384;
+            }
+
+            if (cmodel_write_mesh(sweep_tmp, mat, light, verts, 3) != CMODEL_OK) continue;
+            if (cmodel_init(320, 240) != CMODEL_OK) continue;
+            if (cmodel_load_mesh(sweep_tmp) != CMODEL_OK) { cmodel_reset(); continue; }
+            if (cmodel_render() != CMODEL_OK) { cmodel_reset(); continue; }
+
+            for (int v = 0; v < 3; v++) {
+                int exact_out[4], xform_out[4];
+                if (cmodel_vertex_xform_exact(mat, raw_pos[v], exact_out) != CMODEL_OK) continue;
+                if (cmodel_get_vertex_xform(v, xform_out) != CMODEL_OK) continue;
+                for (int k = 0; k < 4; k++) {
+                    int diff = exact_out[k] - xform_out[k];
+                    if (diff < 0) diff = -diff;
+                    if (diff > max_xform_diff) max_xform_diff = diff;
+                }
+            }
+            cmodel_reset();
+        }
+        (void)remove(sweep_tmp);
+
+        // Bound assert for (a): measured max <= 4 LSB (initial proposal;
+        // tightened to measured max + margin in the header doc + History).
+        fprintf(stderr, "selftest 6H (a) xform sweep: measured max divergence %d LSB (bound 4)\n", max_xform_diff);
+        if (max_xform_diff > 4) {
+            fail |= 2048;
+            fprintf(stderr, "selftest 6H (a) xform sweep: max divergence %d LSB > 4\n", max_xform_diff);
+        }
+
+        // (b) w_norm sweep: N = 1024 random cases
+        int max_wnorm_diff = 0;
+        for (int k = 0; k < 1024; k++) {
+            int x = next_sweep_rand();
+            int y = next_sweep_rand();
+            int z = next_sweep_rand();
+            int mag = 8192 + (abs(next_sweep_rand()) % 24576); // [8192, 32767] = [2^13, 2^15)
+            int w = (next_sweep_rand() < 0) ? -mag : mag;
+
+            int exact_out[4];
+            cmodel_w_norm_exact(x, y, z, w, exact_out);
+
+            // Compare against fpm division
+            F fx = F::from_raw_value(x);
+            F fy = F::from_raw_value(y);
+            F fz = F::from_raw_value(z);
+            F fw = F::from_raw_value(w);
+
+            int fpm_x = (fx / fw).raw_value();
+            int fpm_y = (fy / fw).raw_value();
+            int fpm_z = (fz / fw).raw_value();
+
+            int dx = exact_out[0] - fpm_x; if (dx < 0) dx = -dx;
+            int dy = exact_out[1] - fpm_y; if (dy < 0) dy = -dy;
+            int dz = exact_out[2] - fpm_z; if (dz < 0) dz = -dz;
+
+            if (dx > max_wnorm_diff) max_wnorm_diff = dx;
+            if (dy > max_wnorm_diff) max_wnorm_diff = dy;
+            if (dz > max_wnorm_diff) max_wnorm_diff = dz;
+        }
+
+        // Bound assert for (b): measured max <= 1 LSB
+        fprintf(stderr, "selftest 6H (b) w_norm sweep: measured max divergence %d LSB (bound 1)\n", max_wnorm_diff);
+        if (max_wnorm_diff > 1) {
+            fail |= 2048;
+            fprintf(stderr, "selftest 6H (b) w_norm sweep: max divergence %d LSB > 1\n", max_wnorm_diff);
+        }
+    }
+
     return fail;
 }
 
 cmodel_rc cmodel_version(void){
-    return 2;
+    return 3;
+}
+
+// =========================================================================
+// ABI v3: Seven pure stage oracles + cmodel_get_matrix implementation
+// (file-static helpers u27/s27/dut_term are defined above cmodel_selftest)
+// =========================================================================
+
+cmodel_rc cmodel_vertex_xform_exact(const int mat[16], const int pos[4], int pos_o[4]){
+    if (!mat || !pos || !pos_o) return CMODEL_STATE_ERROR;
+    for (int r = 0; r < 4; r++){
+        int64_t acc = 0;
+        for (int k = 0; k < 4; k++)
+            acc += s27(mat[r*4 + k]) * s27(pos[k]);
+        int64_t out = (acc >> 14) & 0x7FFFFFF;
+        if (out & 0x4000000) out |= ~0x7FFFFFF;
+        pos_o[r] = (int)out;
+    }
+    return CMODEL_OK;
+}
+
+static int64_t lpm_q(int64_t n, int64_t d){
+    int64_t q = n / d;
+    if (n % d < 0) q += (d > 0) ? -1 : 1;
+    return q;
+}
+
+cmodel_rc cmodel_w_norm_exact(int x, int y, int z, int w, int out[4]){
+    if (!out) return CMODEL_STATE_ERROR;
+    int64_t wd = s27(w);
+    if (wd == 0) return CMODEL_STATE_ERROR;
+    const int v[3] = { x, y, z };
+    for (int k = 0; k < 3; k++){
+        int64_t n = s27(v[k]) << 14;
+        int64_t q = lpm_q(n, wd);
+        int32_t r32 = (int32_t)(q & 0x7FFFFFF);
+        if (r32 & 0x4000000) r32 |= ~0x7FFFFFF;
+        out[k] = r32;
+    }
+    out[3] = 1 << 14;
+    return CMODEL_OK;
+}
+
+int cmodel_tri_winding(int x0, int y0, int x1, int y1, int x2, int y2){
+    int32_t m1 = dut_term(x2, y1, x1, y0);
+    int32_t m2 = dut_term(x1, y2, x0, y1);
+    return (int32_t)((uint32_t)m1 - (uint32_t)m2);
+}
+
+int cmodel_edge_func(int x0, int y0, int x1, int y1, int x2, int y2){
+    int32_t m1 = dut_term(x2, y1, x0, y0);
+    int32_t m2 = dut_term(x1, y2, x0, y0);
+    return (int32_t)((uint32_t)m1 - (uint32_t)m2);
+}
+
+cmodel_rc cmodel_inv_z_exact(int z, int *out){
+    if (!out) return CMODEL_STATE_ERROR;
+    int64_t zd = s27(z);
+    if (zd == 0) return CMODEL_STATE_ERROR;
+    *out = (int32_t)((1LL << 28) / zd);
+    return CMODEL_OK;
+}
+
+cmodel_rc cmodel_depth_sample(int e0, int e1, int e2, int area,
+                              int iz0, int iz1, int iz2,
+                              int w[3], int *one_over_z, int *z_depth){
+    if (!w || !one_over_z || !z_depth) return CMODEL_STATE_ERROR;
+    const int e[3] = { e0, e1, e2 };
+    const int iz[3] = { iz0, iz1, iz2 };
+    int32_t area_safe = (area == 0) ? 1 : area;
+    int32_t t[3];
+    uint32_t sum = 0;
+    for (int k = 0; k < 3; k++){
+        w[k] = (int32_t)((((int64_t)(uint32_t)e[k]) << 14) / (int64_t)area_safe);
+        t[k] = (int32_t)(((uint64_t)u27(iz[k]) * (uint32_t)w[k]) >> 14);
+        sum += (uint32_t)t[k];
+    }
+    *one_over_z = (int32_t)sum;
+    int32_t oz_safe = (*one_over_z == 0) ? 1 : *one_over_z;
+    *z_depth = (int32_t)((1LL << 28) / (int64_t)oz_safe);
+    return CMODEL_OK;
+}
+
+cmodel_rc cmodel_raster_sample(int x0, int y0, int x1, int y1, int x2, int y2,
+                               int iz0, int iz1, int iz2,
+                               int px, int py,
+                               int *inside, int w[3], int *one_over_z, int *z_depth){
+    if (!inside || !w || !one_over_z || !z_depth) return CMODEL_STATE_ERROR;
+    uint32_t tx = (u27(px) + 8192u) & 0x7FFFFFFu;
+    uint32_t ty = (u27(py) + 8192u) & 0x7FFFFFFu;
+    int32_t e0 = cmodel_edge_func(x1, y1, x2, y2, (int)tx, (int)ty);
+    int32_t e1 = cmodel_edge_func(x2, y2, x0, y0, (int)tx, (int)ty);
+    int32_t e2 = cmodel_edge_func(x0, y0, x1, y1, (int)tx, (int)ty);
+    *inside = (e0 >= 0) && (e1 >= 0) && (e2 >= 0);
+    if (!*inside){
+        w[0] = 0; w[1] = 0; w[2] = 0;
+        *one_over_z = 0; *z_depth = 0;
+        return CMODEL_OK;
+    }
+    int32_t area = cmodel_edge_func(x0, y0, x1, y1, x2, y2);
+    return cmodel_depth_sample(e0, e1, e2, (int)area, iz0, iz1, iz2, w, one_over_z, z_depth);
+}
+
+cmodel_rc cmodel_get_matrix(int mat[16]){
+    if (!mat || !COMP_XFORM_MAT) return CMODEL_STATE_ERROR;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            mat[i*4 + j] = (int)COMP_XFORM_MAT[i][j].raw_value();
+    return CMODEL_OK;
 }
