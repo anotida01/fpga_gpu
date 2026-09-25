@@ -124,15 +124,12 @@ class gpu_base_test extends uvm_test;
   //   +MEMH_DIR-- directory holding it (abs path, set per-test in regression.vsif)
   // Falls back to the CWD-relative "memh/box.memh" (manual flow symlinks it)
   // when the plusargs are not supplied.
+  // The resolution logic itself lives in gpu_cmodel_pkg (shared with every
+  // other cmodel-consuming test, e.g. tc_vertex_processor_cmodel); this method
+  // delegates so all mesh consumers resolve identically. See
+  // gpu_cmodel_pkg::get_mesh_file for the exact resolution order.
   function automatic string get_mesh_file();
-    string dir, name;
-    if (!$value$plusargs("MEMH=%s", name)) begin
-      return "./memh/box.memh"; // Fallback if +MEMH=... is not specified
-    end
-    if ($value$plusargs("MEMH_DIR=%s", dir) && dir != "") begin
-      return {dir, "/", name};
-    end
-    return name;
+    return gpu_cmodel_pkg::get_mesh_file();
   endfunction
 
   // --- Done-Detection & Render Helpers (irq-line driven, no STATUS bus poll) --

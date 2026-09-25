@@ -58,6 +58,30 @@ package gpu_cmodel_pkg;
     return (cmodel_version() == 3);
   endfunction
 
+  // --- Mesh path resolution (shared by every cmodel-consuming test) ---------
+  // Resolve the mesh (.memh) file to hand to cmodel_load_mesh / cmodel_run.
+  //   +MEMH    -- mesh filename or full path
+  //   +MEMH_DIR-- directory holding it (abs path, set per-test in regression.vsif)
+  // Resolution order: no +MEMH -> "./memh/box.memh" (the single-run flow
+  // do_run_sim.sh symlinks tests/testcases/memh as ./memh in the run dir);
+  // +MEMH=<name> and +MEMH_DIR=<dir> -> "<dir>/<name>"; +MEMH=<path> alone ->
+  // <path> as-is (the vmanager regression vsif inlines $ENV(MEMH_DIR) into the
+  // +MEMH value, so +MEMH_DIR is unused there).
+  // Lives here rather than in gpu_base_test because every test that loads a mesh
+  // through the cmodel (the gpu system tests, tc_vertex_processor_cmodel) must
+  // resolve the path identically - including flows whose run CWD is the vmanager
+  // session dir, which has no ./memh symlink.
+  function automatic string get_mesh_file();
+    string dir, name;
+    if (!$value$plusargs("MEMH=%s", name)) begin
+      return "./memh/box.memh"; // Fallback if +MEMH=... is not specified
+    end
+    if ($value$plusargs("MEMH_DIR=%s", dir) && dir != "") begin
+      return {dir, "/", name};
+    end
+    return name;
+  endfunction
+
   // Run the full pipeline (reset -> init -> load -> render) in one call.
   // Returns CMODEL_OK on success, the specific non-OK C error code otherwise.
   // Defaults (320 x 240) match the C model's fixed V_SIZE/H_SIZE (cmodel_core.h)
