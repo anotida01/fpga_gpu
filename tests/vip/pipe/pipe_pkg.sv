@@ -24,6 +24,44 @@ package pipe_pkg;
     virtual pipe_if#(.DATA_W(DATA_W)) vif;
     bit is_responder = 0; // 0: drives valid/data/addr, 1: drives ready
     bit std_sink     = 0; // 0: wait-then-ready response, 1: always-ready (std sink)
+    // Initial ready level for the non-std (stall-queue) responder path.
+    // Default 0 = legacy: ready low until the first valid is seen.
+    // Set 1 when the modeled downstream FIFO is EMPTY (not full) before the
+    // first output is accepted — a FIFO that reads full before it has accepted
+    // anything is not physically reachable, and it deadlocks DUTs whose first
+    // output is gated on ~full (the sink would wait for a valid that the
+    // blocked DUT never emits). Note: with start_ready=1 the first item is
+    // accepted immediately (no queue entry consumed), so push stall 0 as the
+    // first queue entry to keep per-item mapping.
+    bit start_ready  = 0;
+    // FIFO write-enable sink (third responder mode). Use when the DUT's
+    // output is a FIFO WRITE PORT rather than an AXI-style stream: valid is a
+    // write-enable that DROPS while the FIFO reads full (the DUT holds the
+    // pending result in its pipeline and re-presents it when room returns —
+    // it does NOT hold valid through backpressure). The legacy stream-style
+    // path above (wait for a valid, then hold ready low) deadlocks against
+    // such DUTs: ready stays low waiting for a valid the DUT only
+    // (re)presents when ready is high. fifo_sink instead models a real FIFO:
+    // the write is LATCHED ON THE CLOCK POSEDGE (one write per posedge at
+    // which valid & ready are both 1 in the active region — the pre-edge
+    // values, exactly what a downstream FIFO clocking on the same edge would
+    // capture), and ready is driven from occupancy: 1 before the first write
+    // (an empty FIFO), 0 after each accepted write, 1 again after the queued
+    // drain window. Each queued stall length is that post-accept "FIFO full"
+    // window (ready held low for that many cycles; 0 = the FIFO is drained
+    // and ready stays 1).
+    //
+    // The edge latch is LOAD-BEARING, not stylistic: a level-sensitive
+    // re-check after the edge spins in a zero-delay loop — the DUT's
+    // valid_o deasserts via NBA on the edge AFTER the pulse, so a stale 1
+    // satisfies an immediate re-check infinitely within the same delta (the
+    // 7th CAD-VM attempt burned 200 s CPU and never left the first vout
+    // write). Every loop iteration must cross at least one clock edge.
+    //
+    // X-tolerant by construction: the write condition requires valid===1 AND
+    // ready===1, so a pre-reset X can neither latch a write nor consume a
+    // queue entry.
+    bit fifo_sink    = 0;
     // Responder-owned backpressure: a queue of stall lengths (cycles to hold
     // ready low) applied to successive valid/ready handshakes. A test pushes one
     // entry per expected response (in order); the responder pops the front
@@ -63,12 +101,38 @@ package pipe_pkg;
         if (std_sink) begin
           vif.ready <= 1'b1;
           forever @(posedge vif.clk);
+        end else if (fifo_sink) begin
+          int unsigned stall;
+          vif.ready <= 1'b1; // modeled FIFO starts EMPTY (room to write)
+          forever begin
+            // Latch the write on the clock edge, like a real FIFO: at each
+            // posedge, if valid & ready are both 1 (sampled in the active
+            // region — the pre-edge values), exactly one word is sunk. Never
+            // re-check within the same delta (see the zero-delay spin note in
+            // the fifo_sink comment above).
+            @(posedge vif.clk);
+            if (vif.valid === 1'b1 && vif.ready === 1'b1) begin
+              // Write accepted — the FIFO now reads full; the queued drain
+              // window (if any) extends how long it stays full. The DUT's
+              // write-enable drops for the window and the pending result is
+              // re-presented when room returns.
+              stall = (rdy_stall_q.size() > 0) ? rdy_stall_q.pop_front() : 0;
+              vif.ready <= 1'b0;
+              if (stall > 0)
+                repeat (stall) @(posedge vif.clk);
+              vif.ready <= 1'b1; // drained — room again
+            end
+          end
         end else begin
           int unsigned stall;
-          vif.ready <= 1'b0;
+          vif.ready <= start_ready;
           forever begin
             // Wait for the source to offer a transaction (valid asserted).
-            while (!vif.valid) @(posedge vif.clk);
+            // X-tolerant: a pre-reset X on valid must NOT exit the wait (X is
+            // "false" in a boolean context) — the 5th CAD-VM attempt showed the
+            // X race at t=0 burning the first stall-queue entry and dropping
+            // ready two cycles in, negating start_ready=1.
+            while (!(vif.valid === 1'b1)) @(posedge vif.clk);
             // TRUE backpressure: while the source holds valid (word retention),
             // hold ready LOW for `stall` cycles (0 = none, preserving the legacy
             // always-ready behavior). A single responder process keeps this
@@ -83,7 +147,9 @@ package pipe_pkg;
             vif.ready <= 1'b0;
             // Ensure the source has deasserted valid (moved on) before servicing
             // the next transaction, so we do not double-catch the same valid.
-            while (vif.valid) @(posedge vif.clk);
+            // X-tolerant (same rationale as above): wait until valid is a
+            // definite 0, not "not-1".
+            while (!(vif.valid === 1'b0)) @(posedge vif.clk);
           end
         end
       end
