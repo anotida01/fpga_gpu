@@ -160,6 +160,26 @@ group rop_backend {
   }
 }
 
+group vertex_processor {
+  run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
+  scan_script: "vm_scan.pl ius.flt shell.flt";
+  dut_name: "vertex_processor";
+
+  test tc_vertex_processor_basic {
+    sim_args: "-r tb_vertex_processor_snap +UVM_TESTNAME=tc_vertex_processor_basic";
+    count: 1;
+    sv_seed: random;
+  }
+  test tc_vertex_processor_cmodel {
+    // Loads box.memh from disk via the cmodel; the vmanager session dir has no
+    // ./memh symlink (single-run flow only), so pass the abs path - same
+    // pattern as the gpu group. Resolved by gpu_cmodel_pkg::get_mesh_file.
+    sim_args: "-r tb_vertex_processor_snap +UVM_TESTNAME=tc_vertex_processor_cmodel +MEMH='$ENV(MEMH_DIR)/box.memh'";
+    count: 1;
+    sv_seed: random;
+  }
+}
+
 group gpu {
   run_script: "$ENV(SIM_DIR)/vmgr_do_sim.sh";
   scan_script: "vm_scan.pl ius.flt shell.flt";

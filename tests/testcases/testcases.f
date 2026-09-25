@@ -21,6 +21,8 @@ $PROJ_DIR/tests/testcases/tc_rop_basic.sv
 $PROJ_DIR/tests/testcases/tc_vn_shade_basic.sv
 $PROJ_DIR/tests/testcases/tc_vn_shade_per_vertex.sv
 $PROJ_DIR/tests/testcases/tc_rop_backend_basic.sv
+$PROJ_DIR/tests/testcases/tc_vertex_processor_basic.sv
+$PROJ_DIR/tests/testcases/tc_vertex_processor_cmodel.sv
 $PROJ_DIR/tests/testcases/tc_gpu_smoke_wr_rd.sv
 $PROJ_DIR/tests/testcases/tc_gpu_sys_access_basic.sv
 $PROJ_DIR/tests/testcases/tc_gpu_multi_frame.sv

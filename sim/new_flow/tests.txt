@@ -28,6 +28,8 @@ tc_gpu_sys_access_basic         tb_gpu_snap
 tc_gpu_multi_frame              tb_gpu_snap
 tc_gpu_render_golden            tb_gpu_snap
 tc_gpu_render_gui_live          tb_gpu_snap
+tc_vertex_processor_basic       tb_vertex_processor_snap
+tc_vertex_processor_cmodel      tb_vertex_processor_snap
 # New DUT levels (add a snapshots.txt row + build_<level>.xrun.files first, then map their tests here):
 # tc_vxform_basic               tb_vxform_snap
 # tc_raster_basic               tb_raster_snap

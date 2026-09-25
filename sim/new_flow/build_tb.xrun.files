@@ -31,6 +31,11 @@ $TESTS_DIR/envs/subsystem/rop_backend/rop_backend_env_pkg.sv
 $TESTS_DIR/envs/subsystem/rop_backend/rop_backend_seq_pkg.sv
 $TESTS_DIR/envs/subsystem/rop_backend/tb_rop_backend.sv
 
+# Vertex Processor Subsystem Testbench
+$TESTS_DIR/envs/subsystem/vertex_processor/vertex_processor_env_pkg.sv
+$TESTS_DIR/envs/subsystem/vertex_processor/vertex_processor_seq_pkg.sv
+$TESTS_DIR/envs/subsystem/vertex_processor/tb_vertex_processor.sv
+
 # GPU System Testbench (env_gpu / axil_sys_top)
 # gpu_cmodel_pkg must compile BEFORE gpu_env_pkg: gpu_env_pkg now imports it
 # (the scoreboard's C-model golden sink calls cmodel_run / cmodel_fb_pixel).
