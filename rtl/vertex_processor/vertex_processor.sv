@@ -436,13 +436,17 @@ module vertex_processor_sm_v2 (
     else begin 
       state <= next_state;
       prev_state <= state;
+
+      // WAIT_DMA return target: capture the state being left on the edge
+      // that enters WAIT_DMA. (The previous scheme — "on a detected state
+      // change, return_state <= prev_state" — sampled prev_state one edge
+      // too early, so a DMA response arriving within the first WAIT_DMA
+      // cycle was returned to the state from *before* the fetch state
+      // (IDLE, or RESET for the first word) and the frame was silently
+      // aborted with no gpu_ready_o.
+      if (next_state == WAIT_DMA && state != WAIT_DMA)
+        return_state <= state;
     end
-    
-    // track only state changes
-    if (prev_state != state) // change occured!
-      return_state <= prev_state;
-    else 
-      return_state <= return_state;
   end
 
   // tells the FETCH_* states whether data has been fetched
